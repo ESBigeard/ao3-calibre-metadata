@@ -1,9 +1,11 @@
 #!/usr/bin/python
 # -*- coding:utf-8 -*-
-"""for a calibre book folder, created from an AO3 .epub file, parse the metadata in the beginning of the work toward calibre readable metadata in the metadata.opf"""
+"""after having imported the works into calibre AND imported the custom columns, run this script to populate the custom columns with the AO3 tags and data
+for a calibre book folder, created from an AO3 .epub file, parse the metadata in the beginning of the work toward calibre readable metadata in the metadata.opf"""
 
 import os, zipfile, re, codecs
 from bs4 import BeautifulSoup
+import sqlite3
 
 custom_tags=True #Wether you want to add my custom tags, such as adding the tag "brick" if there is 10k words or more. True to add the tags, False to only keep the original tags
 
@@ -29,8 +31,16 @@ with zipfile.ZipFile(test_file) as z:
 		html=f.readlines()
 		html="\n".join(html)
 		soup=BeautifulSoup(html,"lxml")
+
+		#work ID
+		uri=soup.findAll("a")[1]["href"]
+		uri=re.sub("download\.","",uri)
+
+		#metadata
 		informations = soup.findAll("div", { "class" : "meta" })[0]
+		title=soup.findAll("h1")[0].getText() #used to find the work in the library
 		info_text=informations.getText()
+
 
 		#parsing
 		rating=re.findall("Rating:\n(.*?)\n",info_text)[0]
@@ -47,7 +57,7 @@ with zipfile.ZipFile(test_file) as z:
 
 		#formatting
 		if rating=="Not Rated":
-			metadata["content_rating"]="null"
+			metadata["content_rating"]=""
 
 		metadata["fandom"]=fandom
 		formatted_characters=[]
@@ -60,10 +70,11 @@ with zipfile.ZipFile(test_file) as z:
 			chara=chara.title()
 			chara=re.sub("\."," ",chara) #to avoid bugs with the hierarchical structure
 			chara=fd+"."+chara
-			chara="&quot;"+chara+"&quot;"
+			if False:
+				chara="&quot;"+chara+"&quot;"
 			formatted_characters.append(chara)
-		formatted_characters=",".join(formatted_characters)
-		formatted_characters="["+formatted_characters+"]"
+		#formatted_characters=",".join(formatted_characters)
+		#formatted_characters="["+formatted_characters+"]"
 		metadata["characters"]=formatted_characters
 		
 		chapters=chapters.strip()
@@ -89,30 +100,61 @@ with zipfile.ZipFile(test_file) as z:
 
 
 #edit the calibre metadata file (metadata.opf
-with codecs.open(test_metadata_file,"r","utf-8") as fin, codecs.open(test_metadata_file+"_new","w","utf-8") as fout:
-		for l in fin:
-			match=re.match('\s+<meta name="calibre:user_metadata:#(.*?)"',l)
-			if match:
-				
-				#get the type and value of the metadata
-				data_type=match.group(1)
-				try:
-					data_value=metadata[data_type]
-				except KeyError:
-					data_value=""
+if False:
+	with codecs.open(test_metadata_file,"r","utf-8") as fin, codecs.open(test_metadata_file+"_new","w","utf-8") as fout:
+			for l in fin:
+				match=re.match('\s+<meta name="calibre:user_metadata:#(.*?)"',l)
+				if match:
+					
+					#get the type and value of the metadata
+					data_type=match.group(1)
+					try:
+						data_value=metadata[data_type]
+					except KeyError:
+						data_value=""
 
 
-				match2=re.search("&quot;#value#&quot;:(.*?), &quot;category_sort&quot;:",l)
-				if match2:
-					l_modified=l[:match2.start(1)]+data_value+l[match2.end(1):]
-					if data_type in["characters","read"]:
-						fout.write(l_modified)
+					match2=re.search("&quot;#value#&quot;:(.*?), &quot;category_sort&quot;:",l)
+					if match2:
+						l_modified=l[:match2.start(1)]+data_value+l[match2.end(1):]
+						if data_type in["characters","read"]:
+							fout.write(l_modified)
+						else:
+							fout.write(l)
 					else:
 						fout.write(l)
-				else:
+
+
+				else: #not a line we need to change
 					fout.write(l)
 
 
-			else: #not a line we need to change
-				fout.write(l)
+#edit the database
+
+db=sqlite3.connect("calibre_library/metadata.db")
+cursor=db.cursor()
+
+#find the book id
+cursor.execute("SELECT book,val FROM identifiers WHERE type='uri'")
+rows=cursor.fetchall()
+for r in rows:
+	if r[1]==uri:
+		id_=str(r[0])
+
+#find the value id
+
+cursor.execute("SELECT * FROM books_custom_column_6_link WHERE id="+id_)
+rows=cursor.fetchall()
+if rows:
+	#update
+	print rows
+	pass
+else:
+	#insert
+	print "fioefh"
+	cursor.execute("INSERT INTO books_custom_column_6_link (book,value) VALUES(?,?)",(id_,1))
+
+
+db.commit()
+
 
