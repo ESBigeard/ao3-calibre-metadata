@@ -41,15 +41,16 @@ for root, dirs, files in os.walk(html_root_dir, topdown=False):
 				link="http://archiveofourown.org"+link
 
 				#third step, create the necessary directories
-				out_path=root[len(html_root_dir):]
-				out_path=root.strip("/")
+				path=root[len(html_root_dir):]
+				path=path.strip("/")
+				out_path=epub_root_dir.strip("/")
+				out_path=os.path.join(out_path,path)
+				if out_path[-1]!="/":
+					out_path+="/"
+
 				out_file=re.sub("\.html$",".epub",fname)
 				if not os.path.exists(os.path.dirname(out_path)):
-					try:
-						os.makedirs(os.path.dirname(out_path))
-					except OSError as exc: # Guard against race condition
-						if exc.errno != errno.EEXIST:
-							raise
+					os.makedirs(os.path.dirname(out_path))
 
 				#fourth step : download the epub and save it in the correct location
 				sys.stderr.write("Downloading "+os.path.join(out_path,out_file)+" ...")
