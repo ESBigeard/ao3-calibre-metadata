@@ -20,10 +20,11 @@ test_file="/home/ezi/Dropbox/save/lecture - fics/calibre_library/Sy_Itha/Conflic
 test_metadata_file="/home/ezi/Dropbox/save/lecture - fics/calibre_library/Sy_Itha/Conflict Resolution (15)/metadata.opf"
 
 global_genre="fiction.fanfiction" #I like to put all my fanfiction in this sub-genre. you can change the value at will
-global_read_status="New" #All fics read status will be "new". you can change this to "On it" or "Read" if you prefer. mind the capital.
+global_read_status="On it" #All fics read status will be "new". you can change this to "On it" or "Read" if you prefer. mind the capital.
 
 
-
+db=sqlite3.connect("calibre_library/metadata.db")
+cursor=db.cursor()
 
 #do not touch
 custom_columns={}
@@ -154,64 +155,79 @@ def parse_metadata_opf():
 				else: #not a line we need to change
 					fout.write(l)
 
-def fetch_value_id(column_number,value_real,create=False):
-	"""returns the id of a value for a custom column. with option create, creates the value if it doesn't exist already ; otherwise, raise an error"""
+def fetch_value_id(column_number,value_real,create_missing=False):
+	"""returns the id of a value for a custom column. with option create_missing, creates the value if it doesn't exist already ; otherwise, raise an error"""
+
+	cursor.execute("SELECT id FROM custom_column_"+column_number+" WHERE value='"+value_real+"'")
+	rows= cursor.fetchall()
+	if rows:
+		value_id=str(rows[0][0])
+	else:
+		if create_missing:
+			max_id=cursor.execute("SELECT MAX(id) FROM custom_column_"+column_number)
+			max_id=cursor.fetchone()[0]
+			value_id=max_id+1
+			cursor.execute("INSERT INTO custom_column_"+column_number+" (id, value) VALUES (?,?)" , (value_id,value_real) )
+		else:
+			sys.stderr.write("error : the value "+value_real+" doesn't exist for the column "+column_number+". be sure to enter EXACTLY an existing value\n")
+			raise ValueError
+	return str(value_id)
+
+
 
 def edit_calibre_database(uri,metadata):
 	"""edit the metadata database of calibre
 	uri must be the url of the work on AO3. like "http://archiveofourown.org/works/9290123"
 	metadata must be a dictionnary produced by parse_ao3_metadata()
 	"""
-	db=sqlite3.connect("calibre_library/metadata.db")
-	cursor=db.cursor()
 
 	#find the book id
-	cursor.execute("SELECT book,val FROM identifiers WHERE type='uri'")
+	#cursor.execute("SELECT book,val FROM identifiers WHERE type='uri'")
+	cursor.execute("SELECT book,val FROM identifiers WHERE val='"+uri+"'")
 	rows=cursor.fetchall()
-	for r in rows:
-		if r[1]==uri:
-			id_=str(r[0])
+	if rows:
+		id_=str(rows[0][0])
+	else:
+		sys.stderr.write("error : uri "+uri+" not found. have you first imported the work into calibre ?\n")
+		raise ValueError
 	print "id:",id_
 
 
 	#for metadata_type in ["genre","characters","fandom","pairings","status","read","content_rating"]:
 	if True:
-		metadata_type="status"
-		value_real=metadata[metadata_type]
+		metadata_type="characters"
+		value_real_list=metadata[metadata_type]
 		column_number=custom_columns[metadata_type]
 
-		#find the value id
-		
+		create_missing=True
 		if metadata_type in ["genre","status","read","content_rating"]:
-			#those types have a fixed number of possible values, and should already be in the values table
-			cursor.execute("SELECT id FROM custom_column_"+column_number+" WHERE value='"+value_real+"'")
-			rows= cursor.fetchall()
-			if rows:
-				value=str(rows[0][0])
+			create_missing=False
+
+		#fetch value id
+		is_list=True
+		if type(value_real_list)!=list:
+			value_real_list=[value_real_list]
+			is_list=False
+
+
+		for value_real in value_real_list:
+			value_id=fetch_value_id(column_number,value_real,create_missing)
+
+			#make the change
+			cursor.execute("SELECT * FROM books_custom_column_"+column_number+"_link WHERE book="+id_)
+			rows=cursor.fetchall()
+			if is_list :
+				#check if the specific pair of book and value already exist, created it if not
+				cursor.execute("SELECT * FROM books_custom_column_"+column_number+"_link WHERE book='"+id_+"' and value='"+value_id+"'")
+				row=cursor.fetchone()
+				if not row:
+					cursor.execute("INSERT INTO books_custom_column_"+column_number+"_link (book,value) VALUES(?,?)",(id_,value_id))
+			elif rows:
+				#update
+					cursor.execute("UPDATE books_custom_column_"+column_number+"_link SET value ="+value_id+" WHERE book ="+id_)
 			else:
-				#if we're looking for a new value, chances are we made a mistake somewhere
-				sys.stderr.write("error : the value "+value_real+" doesn't exist for the column "+metadata_type+". be sure to enter EXACTLY an existing value\n")
-				raise TypeError
-		else:
-			#for those types, we need to check if the value exist and add it otherwise
-			#add the new value
-			#for now we assume the real_value is a list, but it will break on fandom
-			for v in value_real:
-				cursor.execute("SELECT id FROM custom_column_"+column_number+" WHERE value='"+v+"'")
-				rows=cursor.fetchall()
-				print "aaa", rows
-
-			exit()
-
-		#make the change
-		cursor.execute("SELECT * FROM books_custom_column_"+column_number+"_link WHERE book="+id_)
-		rows=cursor.fetchall()
-		if rows:
-			#update
-			cursor.execute("UPDATE books_custom_column_"+column_number+"_link SET value ="+value+" WHERE book ="+id_)
-		else:
-			#insert
-			cursor.execute("INSERT INTO books_custom_column_"+column_number+"_link (book,value) VALUES(?,?)",(id_,value))
+				#insert
+				cursor.execute("INSERT INTO books_custom_column_"+column_number+"_link (book,value) VALUES(?,?)",(id_,value_id))
 
 
 	db.commit()
