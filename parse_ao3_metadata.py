@@ -11,17 +11,19 @@ custom_tags=True #Wether you want to add my custom tags, such as adding the tag 
 
 short_fandom={} #each character name is formatted as fandom.character, for example Avatar : The Last Airbender.Zuko This might be too verbose to your liking. Use this dictionnary to define a short name for a fandom. For example if you define short_fandom["Avatar : The Last Airbender"]="ATLA" Zuko will be named "ATLA.Zuko". No correction is performed on the long name, so be careful to type it exactly as it is. This has no effect on the metadata "fandom"
 short_fandom["Avatar: The Last Airbender"]="ATLA" #example
-short_fandom["The Legend of Korra"]="LoK"
+short_fandom["Avatar: Legend of Korra"]="LoK"
 
 brick_thresold=10000 #how many words are needed to add the tag "brick"
 
-test_file="/home/ezi/Dropbox/save/lecture - fics/calibre_library/Sy_Itha/Conflict Resolution (15)/Conflict Resolution - Sy_Itha.epub"
+test_file="/home/ezi/Dropbox/save/lecture - fics/calibre_library/dance_across/After Everyone Else (2)/After Everyone Else - dance_across.epub"
+#test_file="/home/ezi/Dropbox/save/lecture - fics/calibre_library/Sy_Itha/Conflict Resolution (15)/Conflict Resolution - Sy_Itha.epub"
 #must be the file already imported into calibre, with the column already created, but with empty values
-test_metadata_file="/home/ezi/Dropbox/save/lecture - fics/calibre_library/Sy_Itha/Conflict Resolution (15)/metadata.opf"
+#test_metadata_file="/home/ezi/Dropbox/save/lecture - fics/calibre_library/Sy_Itha/Conflict Resolution (15)/metadata.opf"
 
 global_genre="fiction.fanfiction" #I like to put all my fanfiction in this sub-genre. you can change the value at will
-global_read_status="On it" #All fics read status will be "new". you can change this to "On it" or "Read" if you prefer. mind the capital.
+global_read_status="Read" #All imported fics read status. you can set this to "New" "On it" or "Read" . mind the capital.
 
+hierarchical_columns=["characters","relationships"] #characters and relationships can be hierarchical or not. don't add any other.
 
 db=sqlite3.connect("calibre_library/metadata.db")
 cursor=db.cursor()
@@ -32,19 +34,29 @@ custom_columns["word_count"]="1"
 custom_columns["genre"]="2"
 custom_columns["characters"]="3"
 custom_columns["fandom"]="4"
-custom_columns["pairings"]="5"
+custom_columns["relationships"]="5"
 custom_columns["status"]="6"
 custom_columns["read"]="7"
 custom_columns["content_rating"]="8"
+custom_columns["category_relationships"]="9"
+custom_columns["tags"]="tags" #put the non-custom columns in here, with data same as the key
+custom_columns["series"]="series"
 
 rating_conversion={}
 rating_conversion["Explicit"]="E"
 rating_conversion["Mature"]="A"
-rating_conversion["Teen"]="T"
-rating_conversion["General Audience"]="G"
+rating_conversion["Teen And Up Audiences"]="T"
+rating_conversion["General Audiences"]="G"
 rating_conversion["Not Rated"]=""
 
 
+def build_work_list(directory):
+	list_=[]
+	for root, dirs, files in os.walk(directory, topdown=False):
+		for fname in files:
+			if fname.endswith(".epub"):
+				list_.append( os.path.join(root,fname) )
+	return list_
 
 def parse_ao3_metadata(epub_file):
 	"""read and parse metadata from the AO3 header and return a dictionnary of found values
@@ -55,72 +67,104 @@ def parse_ao3_metadata(epub_file):
 	metadata["read"]=global_read_status
 
 	with zipfile.ZipFile(epub_file) as z:
-		with z.open("OEBPS/preface.xhtml") as f :
-			html=f.readlines()
-			html="\n".join(html)
-			soup=BeautifulSoup(html,"lxml")
+		try:
+			with z.open("OEBPS/preface.xhtml") as f :
+				html=f.readlines()
+				html="\n".join(html)
+				soup=BeautifulSoup(html,"lxml")
 
-			#work ID
-			uri=soup.findAll("a")[1]["href"]
-			uri=re.sub("download\.","",uri)
+				#work ID
+				uri=soup.findAll("a")[1]["href"]
+				uri=re.sub("download\.","",uri)
 
-			#metadata
-			informations = soup.findAll("div", { "class" : "meta" })[0]
-			title=soup.findAll("h1")[0].getText() #used to find the work in the library
-			info_text=informations.getText()
+				#metadata
+				informations = soup.findAll("div", { "class" : "meta" })[0]
+				info_text=informations.getText()
+		except KeyError:
+			return False #not an AO3 file
 
 
-			#parsing
-			rating=re.findall("Rating:\n(.*?)\n",info_text)[0]
-			fandom=re.findall("Fandom:\n(.*?)\n",info_text)[0]
-			characters=re.findall("Character:\n(.*?)\n",info_text)[0]
-			characters=characters.split(",")
-			tags=re.findall("Additional Tags:\n(.*?)\n",info_text)[0]
-			tags=tags.split(",")
-			word_count=re.findall("Words: (\d+)",info_text)[0]
+		#parsing
+		raw_data={}
+		for data in ["Rating","Fandom","Category"]:
+			try :
+				raw_data[data]=re.findall(data+":\n(.*?)\n",info_text)[0]
+			except IndexError:
+				raw_data[data]=""
+			#rating=re.findall("Rating:\n(.*?)\n",info_text)[0]
+			#fandom=re.findall("Fandom:\n(.*?)\n",info_text)[0]
+			#cat_relationships=re.findall("Category:\n(.*?)\n",info_text)[0]
+		for data in ["Character","Relationship","Additional Tags"]:
+			try :
+				s=re.findall(data+":\n(.*?)\n",info_text)[0]
+				raw_data[data]=s.split(",")
+				#characters=re.findall("Character:\n(.*?)\n",info_text)[0]
+			except IndexError:
+				raw_data[data]=""
+
+		#characters=characters.split(",")
+		#relationships=re.findall("Relationship:\n(.*?)\n",info_text)[0]
+		#relationships=relationships.split(",")
+		#tags=re.findall("Additional Tags:\n(.*?)\n",info_text)[0]
+		#tags=tags.split(",")
+		word_count=re.findall("Words: (\d+)",info_text)[0]
+		try:
 			chapters=re.findall("Chapters: (.*?)\n",info_text)[0]
-			#series informations
-			#pairings
-			#bonus tags (brick,polyamory)
+		except IndexError:
+			chapters="1/1"
 
-			#formatting
-			metadata["content_rating"]=rating_conversion[rating]
+		series_match=re.findall("Series:\nPart (\d+) of\n\n(.*?)\n",info_text)
+		if series_match:
+			raw_data["series_n"],raw_data["series"]=series_match[0]
+		else:
+			raw_data["series"]=False
+			raw_data["series_n"]=False
 
 
-			metadata["fandom"]=fandom
-			#TODO what if we have several fandoms ?
-			formatted_characters=[]
-			for chara in characters:
-				fd=metadata["fandom"]
-				if fd in short_fandom:
-					fd=short_fandom[fd]
-				fd=re.sub("\."," ",fd) #to avoid bugs with the hierarchical structure
-				chara=chara.strip()
-				chara=chara.title()
-				chara=re.sub("\."," ",chara) #to avoid bugs with the hierarchical structure
-				chara=fd+"."+chara
-				if False:
-					chara="&quot;"+chara+"&quot;"
-				formatted_characters.append(chara)
-			#formatted_characters=",".join(formatted_characters)
-			#formatted_characters="["+formatted_characters+"]"
-			metadata["characters"]=formatted_characters
-			
-			chapters=chapters.strip()
-			chapters=chapters.split("/")
-			if chapters[1]=="?" or chapters[1]!=chapters[0]:
-				metadata["status"]="Ongoing"
-			else:
-				metadata["status"]="Completed"
+		#formatting
+		metadata["content_rating"]=rating_conversion[raw_data["Rating"]]
+		metadata["category_relationships"]=raw_data["Category"]
+		metadata["word_count"]=word_count
+		if raw_data["series"]:
+			metadata["series"]=re.sub("[\.,']"," ",raw_data["series"])
+		else:
+			metadata["series"]=False
+		metadata["series_number"]=raw_data["series_n"]
 
-			metadata["tags"]=[]
-			for tag in tags:
-				tag=tag.strip()
-				metadata["tags"].append(tag)
 
-			if custom_tags==True and int(word_count)>brick_thresold:
-				metadata["tags"].append("brick")
-			metadata["word_count"]=word_count
+		metadata["fandom"]=raw_data["Fandom"]
+		#TODO what if we have several fandoms ?
+		for column_name,column_list in {"characters": raw_data["Character"], "relationships":raw_data["Relationship"],"tags":raw_data["Additional Tags"]}.iteritems():
+				
+			formatted_list=[]
+			for item in column_list:
+				item=item.strip()
+				if column_name!="tags":
+					item=item.title()
+				item=re.sub("[\.,]"," ",item) #to avoid bugs with the possible hierarchical structure
+				item=re.sub("'+"," ",item) #to avoid bugs with sqlite request
+
+				if column_name in hierarchical_columns:
+					fd=metadata["fandom"]
+					if fd in short_fandom:
+						fd=short_fandom[fd]
+					fd=re.sub("\."," ",fd) #to avoid bugs with the hierarchical structure
+					item=fd+"."+item
+				formatted_list.append(item)
+			metadata[column_name]=formatted_list
+
+
+		
+		chapters=chapters.strip()
+		chapters=chapters.split("/")
+		if chapters[1]=="?" or chapters[1]!=chapters[0]:
+			metadata["status"]="Ongoing"
+		else:
+			metadata["status"]="Complete"
+
+
+		if custom_tags==True and int(word_count)>brick_thresold:
+			metadata["tags"].append("brick")
 			
 	
 	return uri,metadata
@@ -155,21 +199,37 @@ def parse_metadata_opf():
 				else: #not a line we need to change
 					fout.write(l)
 
-def fetch_value_id(column_number,value_real,create_missing=False):
+def fetch_value_id(column_name,value_real,create_missing=False):
 	"""returns the id of a value for a custom column. with option create_missing, creates the value if it doesn't exist already ; otherwise, raise an error"""
 
-	cursor.execute("SELECT id FROM custom_column_"+column_number+" WHERE value='"+value_real+"'")
+	#determine the name of the column, different is custom columns or not
+	#if column_number == "tags":
+	#	column_name="tags"
+	#else:
+	#	column_name="custom_column_"
+
+	value_column_name="value"
+	if column_name in ["tags","series"]:
+		value_column_name="name" #histoire de faire chier
+
+
+	#print "rfffffff",[column_name,value_column_name,value_real]
+	cursor.execute("SELECT id FROM "+column_name+" WHERE "+value_column_name+"='"+value_real+"'")
 	rows= cursor.fetchall()
 	if rows:
 		value_id=str(rows[0][0])
 	else:
 		if create_missing:
-			max_id=cursor.execute("SELECT MAX(id) FROM custom_column_"+column_number)
+			max_id=cursor.execute("SELECT MAX(id) FROM "+column_name)
 			max_id=cursor.fetchone()[0]
-			value_id=max_id+1
-			cursor.execute("INSERT INTO custom_column_"+column_number+" (id, value) VALUES (?,?)" , (value_id,value_real) )
+			if max_id:
+				value_id=max_id+1
+			else:
+				value_id=1
+			#print "eeeee",value_id
+			cursor.execute("INSERT INTO "+column_name+" (id, "+value_column_name+") VALUES (?,?)" , (value_id,value_real) )
 		else:
-			sys.stderr.write("error : the value "+value_real+" doesn't exist for the column "+column_number+". be sure to enter EXACTLY an existing value\n")
+			sys.stderr.write("error : the value "+value_real+" doesn't exist for the column "+column_name+". be sure to enter EXACTLY an existing value\n")
 			raise ValueError
 	return str(value_id)
 
@@ -193,15 +253,34 @@ def edit_calibre_database(uri,metadata):
 	print "id:",id_
 
 
-	#for metadata_type in ["genre","characters","fandom","pairings","status","read","content_rating"]:
-	if True:
-		metadata_type="characters"
-		value_real_list=metadata[metadata_type]
-		column_number=custom_columns[metadata_type]
+	#manque series
+	for metadata_type in ["genre","characters","fandom","relationships","status","read","content_rating","tags","word_count","category_relationships"]:
+	#if True:
+		#metadata_type="characters"
+		value_real_list=metadata[metadata_type] #the real, textual values of the metadata"
+		column_number=custom_columns[metadata_type] #identifier of the type of metadata
+		#determine column name
+		column_name="custom_column_"+column_number
+		if metadata_type=="tags":
+			column_name="tags"
+		if metadata_type=="series":
+			column_name="series"
+		column_name_link="books_"+column_name+"_link"
+		if metadata_type=="word_count":
+			column_name_link=column_name
+		#determine the name of the column where the real values are in the table custom_column_N or tags/series
+		value_column_name="value"
+		if column_name=="tags":
+			value_column_name="tag" #histoire de faire chier
+		if column_name=="series":
+			value_column_name="name"
+
 
 		create_missing=True
 		if metadata_type in ["genre","status","read","content_rating"]:
-			create_missing=False
+			#create_missing=False #those have a fixed number of possible values. will return an error if we ask for a value that doesn't exist TODO remove that safeguard at the end for usability
+			pass
+
 
 		#fetch value id
 		is_list=True
@@ -209,33 +288,53 @@ def edit_calibre_database(uri,metadata):
 			value_real_list=[value_real_list]
 			is_list=False
 
-
 		for value_real in value_real_list:
-			value_id=fetch_value_id(column_number,value_real,create_missing)
 
-			#make the change
-			cursor.execute("SELECT * FROM books_custom_column_"+column_number+"_link WHERE book="+id_)
-			rows=cursor.fetchall()
+			if not value_real:
+				continue
+
+			if metadata_type=="word_count":
+				value_id=value_real
+			else:
+				#print "ezrjoerzeeeee",column_name,value_real
+				value_id=fetch_value_id(column_name,value_real,create_missing)
+
+			#print "processing ",column_name,value_real
+
+			#update the database
+
 			if is_list :
-				#check if the specific pair of book and value already exist, created it if not
-				cursor.execute("SELECT * FROM books_custom_column_"+column_number+"_link WHERE book='"+id_+"' and value='"+value_id+"'")
+				#check if the specific pair of book and value already exist, create it if not
+				cursor.execute("SELECT * FROM "+column_name_link+" WHERE book='"+id_+"' and "+value_column_name+"='"+value_id+"'")
 				row=cursor.fetchone()
 				if not row:
-					cursor.execute("INSERT INTO books_custom_column_"+column_number+"_link (book,value) VALUES(?,?)",(id_,value_id))
-			elif rows:
-				#update
-					cursor.execute("UPDATE books_custom_column_"+column_number+"_link SET value ="+value_id+" WHERE book ="+id_)
+					cursor.execute("INSERT INTO "+column_name_link+" (book,"+value_column_name+") VALUES(?,?)",(id_,value_id))
+				else:
+					pass #the information is already in the db, do nothing
+
 			else:
-				#insert
-				cursor.execute("INSERT INTO books_custom_column_"+column_number+"_link (book,value) VALUES(?,?)",(id_,value_id))
+				#check if there is already a value for that work and metadata in the db
+				cursor.execute("SELECT * FROM "+column_name_link+" WHERE book="+id_)
+				rows=cursor.fetchall()
+
+				if rows:
+					#update
+					cursor.execute("UPDATE "+column_name_link+" SET "+value_column_name+" ="+value_id+" WHERE book ="+id_)
+				else:
+					#insert
+					cursor.execute("INSERT INTO "+column_name_link+" (book,"+value_column_name+") VALUES(?,?)",(id_,value_id))
 
 
 	db.commit()
 
 
 if __name__=="__main__":
-	uri,metadata=parse_ao3_metadata(test_file)
-	edit_calibre_database(uri,metadata)
+	works=build_work_list("calibre_library")
+	for work in works:
+		print "processing ",work
+		data=parse_ao3_metadata(work)
+		if data:
+			edit_calibre_database(data[0],data[1])
 
 
 
