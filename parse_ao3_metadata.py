@@ -38,7 +38,7 @@ custom_columns["relationships"]="5"
 custom_columns["status"]="6"
 custom_columns["read"]="7"
 custom_columns["content_rating"]="8"
-custom_columns["category_relationships"]="9"
+custom_columns["category_relationships"]="10"
 custom_columns["tags"]="tags" #put the non-custom columns in here, with data same as the key
 custom_columns["series"]="series"
 
@@ -86,13 +86,12 @@ def parse_ao3_metadata(epub_file):
 
 		#parsing
 		raw_data={}
-		for data in ["Rating","Category"]:
+		for data in ["Rating"]:
 			try :
 				raw_data[data]=re.findall(data+":\n(.*?)\n",info_text)[0]
 			except IndexError:
 				raw_data[data]=""
-			#cat_relationships=re.findall("Category:\n(.*?)\n",info_text)[0]
-		for data in ["Fandom","Character","Relationship","Additional Tags"]:
+		for data in ["Fandom","Character","Relationship","Category","Additional Tags"]:
 			try :
 				s=re.findall(data+":\n(.*?)\n",info_text)[0]
 				raw_data[data]=s.split(",")
@@ -115,7 +114,11 @@ def parse_ao3_metadata(epub_file):
 
 		#formatting
 		metadata["content_rating"]=rating_conversion[raw_data["Rating"]]
-		metadata["category_relationships"]=raw_data["Category"]
+		
+		metadata["category_relationships"]=[]
+		for item in raw_data["Category"]:
+			item=item.strip()
+			metadata["category_relationships"].append(item)
 		metadata["word_count"]=word_count
 		if raw_data["series"]:
 			metadata["series"]=re.sub("[\.,']"," ",raw_data["series"])
