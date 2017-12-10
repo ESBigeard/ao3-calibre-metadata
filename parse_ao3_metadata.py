@@ -7,13 +7,28 @@ import os, zipfile, re, codecs,sys
 from bs4 import BeautifulSoup
 import sqlite3
 
+import_directory="calibre_library/lily_winterwood"
+
+#here's a list of possible columns : tags, series_ao3, word_count, content_rating, read, status, category_relationships, fandom, genre, relationships, characters
+columns_to_update=["tags","series_ao3","word_count","content_rating","read","status","category_relationships","fandom","genre","relationships","characters"] #add here all columns you want the script to update
+columns_to_update=["tags"] #add here all columns you want the script to update
+
 custom_tags=True #Wether you want to add my custom tags, such as adding the tag "brick" if there is 10k words or more. True to add the tags, False to only keep the original tags
 
-short_fandom={} #each character name is formatted as fandom.character, for example Avatar : The Last Airbender.Zuko This might be too verbose to your liking. Use this dictionnary to define a short name for a fandom. For example if you define short_fandom["Avatar : The Last Airbender"]="ATLA" Zuko will be named "ATLA.Zuko". No correction is performed on the long name, so be careful to type it exactly as it is. This has no effect on the metadata "fandom"
-short_fandom["Avatar: The Last Airbender"]="ATLA" #example
+short_fandom={} #each character name is formatted as fandom.character, for example Avatar : The Last Airbender.Zuko This might be too verbose to your liking. Use this dictionnary to define a short name for a fandom. For example if you define short_fandom["Avatar : The Last Airbender"]="ATLA" Zuko will be named "ATLA.Zuko". No correction is performed on the long name, so be careful to type it exactly as it is. This dictionnary can also be used to put different things under the same name, for example the several "fullmetal alchemist" fandoms
+short_fandom["Avatar: The Last Airbender"]="ATLA"
 short_fandom["Avatar: Legend of Korra"]="LoK"
+short_fandom["Fullmetal Alchemist"]="FMA"
+short_fandom["Fullmetal Alchemist - All Media Types"]="FMA"
+short_fandom["Fullmetal Alchemist (Anime 2003)"]="FMA"
+short_fandom["Fullmetal Alchemist: Brotherhood & Manga"]="FMA"
+short_fandom["Harry Potter - Rowling"]="HP"
+short_fandom["Harry Potter - J. K. Rowling"]="HP"
+short_fandom["Subarashiki Kono Sekai | The World Ends With You"]="TWEWY"
+short_fandom["Tales of Symphonia"]="ToS"
+shorten_fandom_itself=True #use the short name defined above for the metadata "fandom" itself
 
-brick_thresold=10000 #how many words are needed to add the tag "brick"
+brick_thresold=100000 #how many words are needed to add the tag "brick"
 
 test_file="/home/ezi/Dropbox/save/lecture - fics/calibre_library/dance_across/After Everyone Else (2)/After Everyone Else - dance_across.epub"
 #test_file="/home/ezi/Dropbox/save/lecture - fics/calibre_library/Sy_Itha/Conflict Resolution (15)/Conflict Resolution - Sy_Itha.epub"
@@ -21,9 +36,10 @@ test_file="/home/ezi/Dropbox/save/lecture - fics/calibre_library/dance_across/Af
 #test_metadata_file="/home/ezi/Dropbox/save/lecture - fics/calibre_library/Sy_Itha/Conflict Resolution (15)/metadata.opf"
 
 global_genre="fiction.fanfiction" #I like to put all my fanfiction in this sub-genre. you can change the value at will
-global_read_status="Read" #All imported fics read status. you can set this to "New" "On it" or "Read" . mind the capital.
+global_read_status="New" #All imported fics read status. you can set this to "New" "On it" or "Read" . mind the capital.
 
 hierarchical_columns=["characters","relationships"] #characters and relationships can be hierarchical or not. don't add any other.
+
 
 db=sqlite3.connect("calibre_library/metadata.db")
 cursor=db.cursor()
@@ -39,8 +55,9 @@ custom_columns["status"]="6"
 custom_columns["read"]="7"
 custom_columns["content_rating"]="8"
 custom_columns["category_relationships"]="10"
+custom_columns["series_ao3"]="12"
 custom_columns["tags"]="tags" #put the non-custom columns in here, with data same as the key
-custom_columns["series"]="series"
+#custom_columns["series"]="series"
 
 rating_conversion={}
 rating_conversion["Explicit"]="E"
@@ -94,7 +111,9 @@ def parse_ao3_metadata(epub_file):
 		for data in ["Fandom","Character","Relationship","Category","Additional Tags"]:
 			try :
 				s=re.findall(data+":\n(.*?)\n",info_text)[0]
-				raw_data[data]=s.split(",")
+				s=s.split(",")
+				s=[x.strip() for x in s]
+				raw_data[data]=s
 			except IndexError:
 				raw_data[data]=""
 
@@ -121,13 +140,21 @@ def parse_ao3_metadata(epub_file):
 			metadata["category_relationships"].append(item)
 		metadata["word_count"]=word_count
 		if raw_data["series"]:
-			metadata["series"]=re.sub("[\.,']"," ",raw_data["series"])
+			metadata["series_ao3"]=re.sub("[\.,']"," ",raw_data["series"])
 		else:
-			metadata["series"]=False
+			metadata["series_ao3"]=False
 		metadata["series_number"]=raw_data["series_n"]
 
 
-		metadata["fandom"]=raw_data["Fandom"]
+		if shorten_fandom_itself:
+			metadata["fandom"]=[]
+			for item in raw_data["Fandom"]:
+				if item in short_fandom:
+					metadata["fandom"].append(short_fandom[item])
+				else:
+					metadata["fandom"].append(item)
+		else:
+			metadata["fandom"]=raw_data["Fandom"]
 		for column_name,column_list in {"characters": raw_data["Character"], "relationships":raw_data["Relationship"],"tags":raw_data["Additional Tags"]}.iteritems():
 				
 			formatted_list=[]
@@ -164,46 +191,11 @@ def parse_ao3_metadata(epub_file):
 	return uri,metadata
 
 
-def parse_metadata_opf():
-	"""unused, old parser for the metadata.opf file. turns out this file is useless."""
-	with codecs.open(test_metadata_file,"r","utf-8") as fin, codecs.open(test_metadata_file+"_new","w","utf-8") as fout:
-			for l in fin:
-				match=re.match('\s+<meta name="calibre:user_metadata:#(.*?)"',l)
-				if match:
-					
-					#get the type and value of the metadata
-					data_type=match.group(1)
-					try:
-						data_value=metadata[data_type]
-					except KeyError:
-						data_value=""
-
-
-					match2=re.search("&quot;#value#&quot;:(.*?), &quot;category_sort&quot;:",l)
-					if match2:
-						l_modified=l[:match2.start(1)]+data_value+l[match2.end(1):]
-						if data_type in["characters","read"]:
-							fout.write(l_modified)
-						else:
-							fout.write(l)
-					else:
-						fout.write(l)
-
-
-				else: #not a line we need to change
-					fout.write(l)
-
-def fetch_value_id(column_name,value_real,create_missing=False):
+def fetch_value_id(column_name,value_real,create_missing=False,):
 	"""returns the id of a value for a custom column. with option create_missing, creates the value if it doesn't exist already ; otherwise, raise an error"""
 
-	#determine the name of the column, different is custom columns or not
-	#if column_number == "tags":
-	#	column_name="tags"
-	#else:
-	#	column_name="custom_column_"
-
 	value_column_name="value"
-	if column_name in ["tags","series"]:
+	if column_name in ["tags"]:#,"series"]:
 		value_column_name="name" #histoire de faire chier
 
 
@@ -220,8 +212,8 @@ def fetch_value_id(column_name,value_real,create_missing=False):
 				value_id=max_id+1
 			else:
 				value_id=1
-			#print "eeeee",value_id
-			cursor.execute("INSERT INTO "+column_name+" (id, "+value_column_name+") VALUES (?,?)" , (value_id,value_real) )
+			#print "eeeee",[column_name,value_column_name,value_id,value_real]
+			cursor.execute("INSERT INTO "+column_name+" (id, '"+value_column_name+"') VALUES (?,?)" , (value_id,value_real) )
 		else:
 			sys.stderr.write("error : the value "+value_real+" doesn't exist for the column "+column_name+". be sure to enter EXACTLY an existing value\n")
 			raise ValueError
@@ -248,7 +240,7 @@ def edit_calibre_database(uri,metadata):
 
 
 	#manque series
-	for metadata_type in ["genre","characters","fandom","relationships","status","read","content_rating","tags","word_count","category_relationships"]:
+	for metadata_type in columns_to_update:
 	#if True:
 		#metadata_type="characters"
 		value_real_list=metadata[metadata_type] #the real, textual values of the metadata"
@@ -298,6 +290,7 @@ def edit_calibre_database(uri,metadata):
 			#update the database
 
 			if is_list :
+			#if the metadata is list-like (tag-like) we don't want to replace an existing value, we want to add a new row
 				#check if the specific pair of book and value already exist, create it if not
 				cursor.execute("SELECT * FROM "+column_name_link+" WHERE book='"+id_+"' and "+value_column_name+"='"+value_id+"'")
 				row=cursor.fetchone()
@@ -313,17 +306,23 @@ def edit_calibre_database(uri,metadata):
 
 				if rows:
 					#update
-					cursor.execute("UPDATE "+column_name_link+" SET "+value_column_name+" ="+value_id+" WHERE book ="+id_)
+					if metadata_type=="series_ao3":
+						cursor.execute("UPDATE "+column_name_link+" SET value = "+value_id+" , extra = "+metadata["series_number"]+" WHERE book ="+id_ )
+					else:
+						cursor.execute("UPDATE "+column_name_link+" SET "+value_column_name+" ="+value_id+" WHERE book ="+id_)
 				else:
 					#insert
-					cursor.execute("INSERT INTO "+column_name_link+" (book,"+value_column_name+") VALUES(?,?)",(id_,value_id))
+					if metadata_type=="series_ao3":
+						cursor.execute("INSERT INTO "+column_name_link+" (book,value,extra) VALUES(?,?,?)",(id_,value_id,metadata["series_number"]))
+					else:
+						cursor.execute("INSERT INTO "+column_name_link+" (book,"+value_column_name+") VALUES(?,?)",(id_,value_id))
 
 
 	db.commit()
 
 
 if __name__=="__main__":
-	works=build_work_list("calibre_library")
+	works=build_work_list(import_directory)
 	for work in works:
 		print "processing ",work
 		data=parse_ao3_metadata(work)
