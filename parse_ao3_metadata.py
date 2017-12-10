@@ -86,27 +86,19 @@ def parse_ao3_metadata(epub_file):
 
 		#parsing
 		raw_data={}
-		for data in ["Rating","Fandom","Category"]:
+		for data in ["Rating","Category"]:
 			try :
 				raw_data[data]=re.findall(data+":\n(.*?)\n",info_text)[0]
 			except IndexError:
 				raw_data[data]=""
-			#rating=re.findall("Rating:\n(.*?)\n",info_text)[0]
-			#fandom=re.findall("Fandom:\n(.*?)\n",info_text)[0]
 			#cat_relationships=re.findall("Category:\n(.*?)\n",info_text)[0]
-		for data in ["Character","Relationship","Additional Tags"]:
+		for data in ["Fandom","Character","Relationship","Additional Tags"]:
 			try :
 				s=re.findall(data+":\n(.*?)\n",info_text)[0]
 				raw_data[data]=s.split(",")
-				#characters=re.findall("Character:\n(.*?)\n",info_text)[0]
 			except IndexError:
 				raw_data[data]=""
 
-		#characters=characters.split(",")
-		#relationships=re.findall("Relationship:\n(.*?)\n",info_text)[0]
-		#relationships=relationships.split(",")
-		#tags=re.findall("Additional Tags:\n(.*?)\n",info_text)[0]
-		#tags=tags.split(",")
 		word_count=re.findall("Words: (\d+)",info_text)[0]
 		try:
 			chapters=re.findall("Chapters: (.*?)\n",info_text)[0]
@@ -133,7 +125,6 @@ def parse_ao3_metadata(epub_file):
 
 
 		metadata["fandom"]=raw_data["Fandom"]
-		#TODO what if we have several fandoms ?
 		for column_name,column_list in {"characters": raw_data["Character"], "relationships":raw_data["Relationship"],"tags":raw_data["Additional Tags"]}.iteritems():
 				
 			formatted_list=[]
@@ -145,7 +136,7 @@ def parse_ao3_metadata(epub_file):
 				item=re.sub("'+"," ",item) #to avoid bugs with sqlite request
 
 				if column_name in hierarchical_columns:
-					fd=metadata["fandom"]
+					fd=metadata["fandom"][0] #TODO hack, if there is several fandoms, just associate the characters with the first fandom
 					if fd in short_fandom:
 						fd=short_fandom[fd]
 					fd=re.sub("\."," ",fd) #to avoid bugs with the hierarchical structure
