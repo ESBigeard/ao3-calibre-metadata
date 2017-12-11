@@ -11,7 +11,7 @@ import_directory="calibre_library"
 
 #here's a list of possible columns : tags, series_ao3, word_count, content_rating, read, status, category_relationships, fandom, genre, relationships, characters
 columns_to_update=["tags","series_ao3","word_count","content_rating","read","status","category_relationships","fandom","genre","relationships","characters"] #add here all columns you want the script to update
-columns_to_update=["characters"] #add here all columns you want the script to update
+columns_to_update=["relationships"] #add here all columns you want the script to update
 
 custom_tags=True #Wether you want to add my custom tags, such as adding the tag "brick" if there is 10k words or more. True to add the tags, False to only keep the original tags
 
@@ -27,7 +27,20 @@ short_fandom["Harry Potter - J. K. Rowling"]="HP"
 short_fandom["Subarashiki Kono Sekai | The World Ends With You"]="TWEWY"
 short_fandom["Tales of Symphonia"]="ToS"
 short_fandom["Yuri!!! on Ice (Anime)"]="YoI"
+short_fandom["Tsubasa: Reservoir Chronicle"]="Tsubasa"
 shorten_fandom_itself=True #use the short name defined above for the metadata "fandom" itself
+
+short_ship={} #use a shorten version of a character name in the relationship metadata. For example "HP.Draco Malfoy/Harry Potter" becomes "HP.Draco/Harry" or even "HP.Drarry". Enter only the name of the ship, without the fandom in front, like "Draco/Harry". This has no effect on the "character" metadata
+short_ship["Draco Malfoy/Harry Potter"]="Draco/Harry"
+short_ship["Sirius Black/Remus Lupin"]="Wolfstar"
+short_ship["Christophe Giacometti/Katsuki Yuuri/Victor Nikiforov"]="Chris/Yuuri/Victor"
+
+short_character={} #same as previously, but with only one character. For example if you have one character in ships with several other characters, you can add his name here to be shortened in all of his ships. Enter only the name of the character without the fandom, for example "Draco Malfoy" This has no effect on the "character" metadata
+short_character["Christophe Giacometti"]="Chris"
+short_character["Katsuki Yuuri"]="Yuuri"
+short_character["Yuuri Katsuki"]="Yuuri"
+short_character["Yuri Katsuki"]="Yuuri"
+short_character["Victor Nikiforov"]="Victor"
 
 brick_thresold=100000 #how many words are needed to add the tag "brick"
 
@@ -65,6 +78,49 @@ rating_conversion["Teen And Up Audiences"]="T"
 rating_conversion["General Audiences"]="G"
 rating_conversion["Not Rated"]=""
 
+
+
+def format_relationship(ship):
+	#avoid duplicates due to different order
+	#assumes that 3+ relationships have all the same separator (& or /)
+
+	ship=re.sub(" - Relationship","",ship)
+	separator=""
+	if re.search("/",ship):
+		separator="/"
+	elif re.search("&",ship):
+		separator="&"
+	if separator:
+		names=re.split("[/&]",ship)
+		ship=[]
+		for name in names:
+			name=name.strip()
+			name=format_character_name(name)
+			if name in short_character:
+				name=short_character[name]
+			ship.append(name)
+		ship.sort()
+		ship=separator.join(ship)
+	else:
+		#weird formatting, do nothing
+		pass
+	if ship in short_ship:
+		ship=short_ship[ship]
+	return ship
+
+def format_character_name(name):
+	name=re.sub("\(.*?\)","",name) #delete parenthesis content, such as "Draco Malfoy (Harry Potter)"
+	name=re.split("( )",name)
+	#correct capitalisation
+	for i,a in enumerate(name):
+		if a !="'s":
+			if len(a)>1:
+				name[i]=a[0].upper()+a[1:]
+			else:
+				name[i]=a.upper()
+	name="".join(name)
+	name=name.strip()
+	return name
 
 def build_work_list(directory):
 	list_=[]
@@ -134,9 +190,6 @@ def parse_ao3_metadata(epub_file):
 		metadata["content_rating"]=rating_conversion[raw_data["Rating"]]
 		
 		metadata["category_relationships"]=raw_data["Category"]
-		#for item in raw_data["Category"]:
-		#	item=item.strip()
-		#	metadata["category_relationships"].append(item)
 		metadata["word_count"]=word_count
 		if raw_data["series"]:
 			metadata["series_ao3"]=re.sub("[\.,']"," ",raw_data["series"])
@@ -160,46 +213,18 @@ def parse_ao3_metadata(epub_file):
 			formatted_list=[]
 			for item in column_list:
 				item=item.strip()
-				if column_name in["characters","relationships"]:
-					#correct capitalisation of names
-					item=re.split("( )",item)
-					for i,a in enumerate(item):
-						if a !="'s":
-							item[i]=a[0].upper()+a[1:]
-					item="".join(item)
+				if column_name == "characters":
+					item=format_character_name(item)
 
-				item=re.sub("[\.]"," ",item) #to avoid bugs with the possible hierarchical structure
-				#item=re.sub("'+",r"\\\'",item) #to avoid bugs with sqlite request
-
-				if column_name in ["characters","relationships"]:
-					item=re.sub("\(.*?\)","",item) #delete parenthesis content, such as "Draco Malfoy (Harry Potter)"
-					item=item.strip()
-
-				if column_name =="relationships":
-					#avoid duplicates due to different order
-					#assumes that 3+ relationships have all the same separator (& or /)
-					separator=""
-					if re.search("/",item):
-						separator="/"
-					elif re.search("&",item):
-						separator="&"
-					if separator:
-						item=re.split("[/&]",item)
-						item=[x.strip() for x in item]
-						item=[x.title() for x in item]
-						item.sort()
-						item=separator.join(item)
-					else:
-						#weird formatting, do nothing
-						pass
-
-
+				elif column_name =="relationships":
+					item=format_relationship(item)
 
 				if column_name in hierarchical_columns:
 					fd=metadata["fandom"][0] #TODO hack, if there is several fandoms, just associate the characters with the first fandom
 					if fd in short_fandom:
 						fd=short_fandom[fd]
 					fd=re.sub("\."," ",fd) #to avoid bugs with the hierarchical structure
+					item=re.sub("\."," ",item)
 					item=fd+"."+item
 				formatted_list.append(item)
 			metadata[column_name]=formatted_list
@@ -346,6 +371,13 @@ def edit_calibre_database(uri,metadata):
 
 if __name__=="__main__":
 	works=build_work_list(import_directory)
+
+	short_ship2={}
+	for ship in short_ship:
+		ship2=format_relationship(ship)
+		short_ship2[ship2]=short_ship[ship]
+	short_ship=short_ship2
+
 	for work in works:
 		print "processing ",work
 		data=parse_ao3_metadata(work)
