@@ -11,7 +11,7 @@ import_directory="calibre_library"
 
 #here's a list of possible columns : tags, series_ao3, word_count, content_rating, read, status, category_relationships, fandom, genre, relationships, characters
 columns_to_update=["tags","series_ao3","word_count","content_rating","read","status","category_relationships","fandom","genre","relationships","characters"] #add here all columns you want the script to update
-columns_to_update=["tags"] #add here all columns you want the script to update
+columns_to_update=["characters","relationships"] #add here all columns you want the script to update
 
 custom_tags=True #Wether you want to add my custom tags, such as adding the tag "brick" if there is 10k words or more. True to add the tags, False to only keep the original tags
 
@@ -165,7 +165,29 @@ def parse_ao3_metadata(epub_file):
 				item=re.sub("[\.,]"," ",item) #to avoid bugs with the possible hierarchical structure
 				item=re.sub("'+"," ",item) #to avoid bugs with sqlite request
 
-				#TODO add polishing of relationships
+				if column_name in ["characters","relationships"]:
+					item=re.sub("\(.*?\)","",item) #delete parenthesis content, such as "Draco Malfoy (Harry Potter)"
+					item=item.strip()
+
+				if column_name =="relationships":
+					#avoid duplicates due to different order
+					#assumes that 3+ relationships have all the same separator (& or /)
+					separator=""
+					if re.search("/",item):
+						separator="/"
+					elif re.search("&",item):
+						separator="&"
+					if separator:
+						item=re.split("[/&]",item)
+						item=[x.strip() for x in item]
+						item=[x.title() for x in item]
+						item.sort()
+						item=separator.join(item)
+					else:
+						#weird formatting, do nothing
+						pass
+
+
 
 				if column_name in hierarchical_columns:
 					fd=metadata["fandom"][0] #TODO hack, if there is several fandoms, just associate the characters with the first fandom
