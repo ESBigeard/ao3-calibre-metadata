@@ -7,7 +7,7 @@ import os, zipfile, re, codecs,sys
 from bs4 import BeautifulSoup
 import sqlite3
 
-import_directory="calibre_library/lily_winterwood"
+import_directory="calibre_library"
 
 #here's a list of possible columns : tags, series_ao3, word_count, content_rating, read, status, category_relationships, fandom, genre, relationships, characters
 columns_to_update=["tags","series_ao3","word_count","content_rating","read","status","category_relationships","fandom","genre","relationships","characters"] #add here all columns you want the script to update
@@ -26,14 +26,13 @@ short_fandom["Harry Potter - Rowling"]="HP"
 short_fandom["Harry Potter - J. K. Rowling"]="HP"
 short_fandom["Subarashiki Kono Sekai | The World Ends With You"]="TWEWY"
 short_fandom["Tales of Symphonia"]="ToS"
+short_fandom["Yuri!!! on Ice (Anime)"]="YoI"
 shorten_fandom_itself=True #use the short name defined above for the metadata "fandom" itself
 
 brick_thresold=100000 #how many words are needed to add the tag "brick"
 
 test_file="/home/ezi/Dropbox/save/lecture - fics/calibre_library/dance_across/After Everyone Else (2)/After Everyone Else - dance_across.epub"
 #test_file="/home/ezi/Dropbox/save/lecture - fics/calibre_library/Sy_Itha/Conflict Resolution (15)/Conflict Resolution - Sy_Itha.epub"
-#must be the file already imported into calibre, with the column already created, but with empty values
-#test_metadata_file="/home/ezi/Dropbox/save/lecture - fics/calibre_library/Sy_Itha/Conflict Resolution (15)/metadata.opf"
 
 global_genre="fiction.fanfiction" #I like to put all my fanfiction in this sub-genre. you can change the value at will
 global_read_status="New" #All imported fics read status. you can set this to "New" "On it" or "Read" . mind the capital.
@@ -134,10 +133,10 @@ def parse_ao3_metadata(epub_file):
 		#formatting
 		metadata["content_rating"]=rating_conversion[raw_data["Rating"]]
 		
-		metadata["category_relationships"]=[]
-		for item in raw_data["Category"]:
-			item=item.strip()
-			metadata["category_relationships"].append(item)
+		metadata["category_relationships"]=raw_data["Category"]
+		#for item in raw_data["Category"]:
+		#	item=item.strip()
+		#	metadata["category_relationships"].append(item)
 		metadata["word_count"]=word_count
 		if raw_data["series"]:
 			metadata["series_ao3"]=re.sub("[\.,']"," ",raw_data["series"])
@@ -155,6 +154,7 @@ def parse_ao3_metadata(epub_file):
 					metadata["fandom"].append(item)
 		else:
 			metadata["fandom"]=raw_data["Fandom"]
+
 		for column_name,column_list in {"characters": raw_data["Character"], "relationships":raw_data["Relationship"],"tags":raw_data["Additional Tags"]}.iteritems():
 				
 			formatted_list=[]
@@ -164,6 +164,8 @@ def parse_ao3_metadata(epub_file):
 					item=item.title()
 				item=re.sub("[\.,]"," ",item) #to avoid bugs with the possible hierarchical structure
 				item=re.sub("'+"," ",item) #to avoid bugs with sqlite request
+
+				#TODO add polishing of relationships
 
 				if column_name in hierarchical_columns:
 					fd=metadata["fandom"][0] #TODO hack, if there is several fandoms, just associate the characters with the first fandom
@@ -191,31 +193,31 @@ def parse_ao3_metadata(epub_file):
 	return uri,metadata
 
 
-def fetch_value_id(column_name,value_real,create_missing=False,):
+def fetch_value_id(table_name,value_real,create_missing=False,):
 	"""returns the id of a value for a custom column. with option create_missing, creates the value if it doesn't exist already ; otherwise, raise an error"""
 
-	value_column_name="value"
-	if column_name in ["tags"]:#,"series"]:
+	value_column_name="value" #name of the column where we want to find value_real
+	if table_name in ["tags"]:
 		value_column_name="name" #histoire de faire chier
 
 
-	#print "rfffffff",[column_name,value_column_name,value_real]
-	cursor.execute("SELECT id FROM "+column_name+" WHERE "+value_column_name+"='"+value_real+"'")
-	rows= cursor.fetchall()
+	#print "rfffffff",[table_name,value_column_name,value_real]
+	cursor.execute("SELECT id FROM "+table_name+" WHERE "+value_column_name+"='"+value_real+"'")
+	rows= cursor.fetchone()
 	if rows:
-		value_id=str(rows[0][0])
+		value_id=str(rows[0])
 	else:
 		if create_missing:
-			max_id=cursor.execute("SELECT MAX(id) FROM "+column_name)
+			max_id=cursor.execute("SELECT MAX(id) FROM "+table_name)
 			max_id=cursor.fetchone()[0]
 			if max_id:
 				value_id=max_id+1
 			else:
 				value_id=1
-			#print "eeeee",[column_name,value_column_name,value_id,value_real]
-			cursor.execute("INSERT INTO "+column_name+" (id, '"+value_column_name+"') VALUES (?,?)" , (value_id,value_real) )
+			#print "eeeee",[table_name,value_column_name,value_id,value_real]
+			cursor.execute("INSERT INTO "+table_name+" (id, '"+value_column_name+"') VALUES (?,?)" , (value_id,value_real) )
 		else:
-			sys.stderr.write("error : the value "+value_real+" doesn't exist for the column "+column_name+". be sure to enter EXACTLY an existing value\n")
+			sys.stderr.write("error : the value "+value_real+" doesn't exist for the column "+table_name+". be sure to enter EXACTLY an existing value\n")
 			raise ValueError
 	return str(value_id)
 
@@ -228,38 +230,32 @@ def edit_calibre_database(uri,metadata):
 	"""
 
 	#find the book id
-	#cursor.execute("SELECT book,val FROM identifiers WHERE type='uri'")
 	cursor.execute("SELECT book,val FROM identifiers WHERE val='"+uri+"'")
-	rows=cursor.fetchall()
+	rows=cursor.fetchone()
 	if rows:
-		id_=str(rows[0][0])
+		id_=str(rows[0])
 	else:
 		sys.stderr.write("error : uri "+uri+" not found. have you first imported the work into calibre ?\n")
 		raise ValueError
-	print "id:",id_
+	#print "id:",id_
 
 
-	#manque series
 	for metadata_type in columns_to_update:
-	#if True:
-		#metadata_type="characters"
-		value_real_list=metadata[metadata_type] #the real, textual values of the metadata"
+		value_real_list=metadata[metadata_type] #the real, textual values of the metadata
 		column_number=custom_columns[metadata_type] #identifier of the type of metadata
-		#determine column name
+
+		#determine table name
 		column_name="custom_column_"+column_number
 		if metadata_type=="tags":
 			column_name="tags"
-		if metadata_type=="series":
-			column_name="series"
 		column_name_link="books_"+column_name+"_link"
 		if metadata_type=="word_count":
 			column_name_link=column_name
-		#determine the name of the column where the real values are in the table custom_column_N or tags/series
+
+		#determine the name of the column where the real values are in the table custom_column_N or tags
 		value_column_name="value"
 		if column_name=="tags":
-			value_column_name="tag" #histoire de faire chier
-		if column_name=="series":
-			value_column_name="name"
+			value_column_name="tag"
 
 
 		create_missing=True
@@ -285,7 +281,6 @@ def edit_calibre_database(uri,metadata):
 				#print "ezrjoerzeeeee",column_name,value_real
 				value_id=fetch_value_id(column_name,value_real,create_missing)
 
-			#print "processing ",column_name,value_real
 
 			#update the database
 
