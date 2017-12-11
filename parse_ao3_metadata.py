@@ -11,7 +11,7 @@ import_directory="calibre_library"
 
 #here's a list of possible columns : tags, series_ao3, word_count, content_rating, read, status, category_relationships, fandom, genre, relationships, characters
 columns_to_update=["tags","series_ao3","word_count","content_rating","read","status","category_relationships","fandom","genre","relationships","characters"] #add here all columns you want the script to update
-columns_to_update=["characters","relationships"] #add here all columns you want the script to update
+columns_to_update=["characters"] #add here all columns you want the script to update
 
 custom_tags=True #Wether you want to add my custom tags, such as adding the tag "brick" if there is 10k words or more. True to add the tags, False to only keep the original tags
 
@@ -160,10 +160,16 @@ def parse_ao3_metadata(epub_file):
 			formatted_list=[]
 			for item in column_list:
 				item=item.strip()
-				if column_name!="tags":
-					item=item.title()
-				item=re.sub("[\.,]"," ",item) #to avoid bugs with the possible hierarchical structure
-				item=re.sub("'+"," ",item) #to avoid bugs with sqlite request
+				if column_name in["characters","relationships"]:
+					#correct capitalisation of names
+					item=re.split("( )",item)
+					for i,a in enumerate(item):
+						if a !="'s":
+							item[i]=a[0].upper()+a[1:]
+					item="".join(item)
+
+				item=re.sub("[\.]"," ",item) #to avoid bugs with the possible hierarchical structure
+				#item=re.sub("'+",r"\\\'",item) #to avoid bugs with sqlite request
 
 				if column_name in ["characters","relationships"]:
 					item=re.sub("\(.*?\)","",item) #delete parenthesis content, such as "Draco Malfoy (Harry Potter)"
@@ -224,7 +230,7 @@ def fetch_value_id(table_name,value_real,create_missing=False,):
 
 
 	#print "rfffffff",[table_name,value_column_name,value_real]
-	cursor.execute("SELECT id FROM "+table_name+" WHERE "+value_column_name+"='"+value_real+"'")
+	cursor.execute("SELECT id FROM "+table_name+" WHERE "+value_column_name+"= ?", (value_real,))
 	rows= cursor.fetchone()
 	if rows:
 		value_id=str(rows[0])
