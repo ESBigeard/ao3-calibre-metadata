@@ -9,9 +9,11 @@ import sqlite3
 
 import_directory="calibre_library"
 
+only_process_new=True #only tag works that seem new. False to re-tag work. this works by checking if the fandom is set
+
 #here's a list of possible columns : tags, series_ao3, word_count, content_rating, read, status, category_relationships, fandom, genre, relationships, characters
 columns_to_update=["tags","series_ao3","word_count","content_rating","read","status","category_relationships","fandom","genre","relationships","characters"] #add here all columns you want the script to update
-columns_to_update=["tags"] #add here all columns you want the script to update
+#columns_to_update=["tags"] #add here all columns you want the script to update
 
 custom_tags=True #Wether you want to add my custom tags, such as adding the tag "brick" if there is 10k words or more. True to add the tags, False to only keep the original tags
 custom_tags_list=["threesome"] #list of my tags
@@ -302,6 +304,13 @@ def edit_calibre_database(uri,metadata):
 		sys.stderr.write("error : uri "+uri+" not found. have you first imported the work into calibre ?\n")
 		raise ValueError
 	#print "id:",id_
+
+	#check if fandom is already set, to know if this is a new book
+	if only_process_new:
+		cursor.execute("SELECT * from books_custom_column_"+custom_columns["fandom"]+"_link WHERE book="+id_) 
+		if cursor.fetchone():
+			print "Skipped this work (already tagged)"
+			return
 
 
 	for metadata_type in columns_to_update:
