@@ -11,9 +11,14 @@ import_directory="calibre_library"
 
 #here's a list of possible columns : tags, series_ao3, word_count, content_rating, read, status, category_relationships, fandom, genre, relationships, characters
 columns_to_update=["tags","series_ao3","word_count","content_rating","read","status","category_relationships","fandom","genre","relationships","characters"] #add here all columns you want the script to update
-columns_to_update=["relationships"] #add here all columns you want the script to update
+columns_to_update=["tags"] #add here all columns you want the script to update
 
 custom_tags=True #Wether you want to add my custom tags, such as adding the tag "brick" if there is 10k words or more. True to add the tags, False to only keep the original tags
+custom_tags_list=["threesome"] #list of my tags
+transfer_tags_list={} #list of AO3 tags to copy to calibre native tags
+transfer_tags_list["Hogwarts Eighth Year"]="HP.8th year"
+transfer_tags_list["Post-Canon"]="post-canon"
+transfer_tags_list["Alpha/Beta/Omega Dynamics"]="ABO"
 
 short_fandom={} #each character name is formatted as fandom.character, for example Avatar : The Last Airbender.Zuko This might be too verbose to your liking. Use this dictionnary to define a short name for a fandom. For example if you define short_fandom["Avatar : The Last Airbender"]="ATLA" Zuko will be named "ATLA.Zuko". No correction is performed on the long name, so be careful to type it exactly as it is. This dictionnary can also be used to put different things under the same name, for example the several "fullmetal alchemist" fandoms
 short_fandom["Avatar: The Last Airbender"]="ATLA"
@@ -42,7 +47,6 @@ short_character["Yuuri Katsuki"]="Yuuri"
 short_character["Yuri Katsuki"]="Yuuri"
 short_character["Victor Nikiforov"]="Victor"
 
-brick_thresold=100000 #how many words are needed to add the tag "brick"
 
 test_file="/home/ezi/Dropbox/save/lecture - fics/calibre_library/dance_across/After Everyone Else (2)/After Everyone Else - dance_across.epub"
 #test_file="/home/ezi/Dropbox/save/lecture - fics/calibre_library/Sy_Itha/Conflict Resolution (15)/Conflict Resolution - Sy_Itha.epub"
@@ -68,6 +72,7 @@ custom_columns["read"]="7"
 custom_columns["content_rating"]="8"
 custom_columns["category_relationships"]="10"
 custom_columns["series_ao3"]="12"
+custom_columns["ao3_tags"]="13"
 custom_columns["tags"]="tags" #put the non-custom columns in here, with data same as the key
 #custom_columns["series"]="series"
 
@@ -208,7 +213,8 @@ def parse_ao3_metadata(epub_file):
 		else:
 			metadata["fandom"]=raw_data["Fandom"]
 
-		for column_name,column_list in {"characters": raw_data["Character"], "relationships":raw_data["Relationship"],"tags":raw_data["Additional Tags"]}.iteritems():
+		metadata["tags"]=[]
+		for column_name,column_list in {"characters": raw_data["Character"], "relationships":raw_data["Relationship"],"ao3_tags":raw_data["Additional Tags"]}.iteritems():
 				
 			formatted_list=[]
 			for item in column_list:
@@ -218,6 +224,9 @@ def parse_ao3_metadata(epub_file):
 
 				elif column_name =="relationships":
 					item=format_relationship(item)
+					if len(re.findall("/",item))>1 and "threesome" in custom_tags_list:
+						metadata["tags"].append("threesome")
+					
 
 				if column_name in hierarchical_columns:
 					fd=metadata["fandom"][0] #TODO hack, if there is several fandoms, just associate the characters with the first fandom
@@ -229,6 +238,10 @@ def parse_ao3_metadata(epub_file):
 				formatted_list.append(item)
 			metadata[column_name]=formatted_list
 
+		for tag in metadata["ao3_tags"]:
+			if tag in transfer_tags_list:
+				metadata["tags"].append(transfer_tags_list[tag])
+
 
 		
 		chapters=chapters.strip()
@@ -239,8 +252,6 @@ def parse_ao3_metadata(epub_file):
 			metadata["status"]="Complete"
 
 
-		if custom_tags==True and int(word_count)>brick_thresold:
-			metadata["tags"].append("brick")
 			
 	
 	return uri,metadata
