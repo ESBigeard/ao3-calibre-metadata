@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # -*- coding:utf-8 -*-
-"""after having imported the works into calibre AND imported the custom columns, run this script to populate the custom columns with the AO3 tags and data
-for a calibre book folder, created from an AO3 .epub file, parse the metadata in the beginning of the work toward calibre readable metadata in the metadata.opf"""
+"""how to use : after having imported the works into calibre AND imported the custom columns, run this script to populate the custom columns with the AO3 tags and data
+what it does : for a calibre book folder, created from an AO3 .epub file, parse the metadata in the beginning of the work toward calibre readable metadata in the metadata.opf"""
 
 import os, zipfile, re, codecs,sys
 from bs4 import BeautifulSoup
@@ -15,7 +15,7 @@ only_process_new=True #only tag works that seem new. False to re-tag work. this 
 columns_to_update=["tags","series_ao3","word_count","content_rating","read","status","category_relationships","fandom","genre","relationships","characters"] #add here all columns you want the script to update
 #columns_to_update=["tags"] #add here all columns you want the script to update
 
-custom_tags=True #Wether you want to add my custom tags, such as adding the tag "brick" if there is 10k words or more. True to add the tags, False to only keep the original tags
+custom_tags=True #Wether you want to add my custom tags. True to add the tags, False to only keep the original tags. this goes to the native "tags" column of calibre
 custom_tags_list=["threesome"] #list of my tags
 transfer_tags_list={} #list of AO3 tags to copy to calibre native tags
 transfer_tags_list["Hogwarts Eighth Year"]="HP.8th year"
@@ -48,6 +48,9 @@ short_character["Katsuki Yuuri"]="Yuuri"
 short_character["Yuuri Katsuki"]="Yuuri"
 short_character["Yuri Katsuki"]="Yuuri"
 short_character["Victor Nikiforov"]="Victor"
+short_character['Bito "Beat" Daisukenojou']="Beat"
+short_character['Bito "Rhyme" Raimu']="Rhyme"
+short_character['Kiryu "Joshua" Yoshiya']="Joshua"
 
 
 test_file="/home/ezi/Dropbox/save/lecture - fics/calibre_library/dance_across/After Everyone Else (2)/After Everyone Else - dance_across.epub"
@@ -80,7 +83,7 @@ custom_columns["tags"]="tags" #put the non-custom columns in here, with data sam
 
 rating_conversion={}
 rating_conversion["Explicit"]="E"
-rating_conversion["Mature"]="A"
+rating_conversion["Mature"]="M"
 rating_conversion["Teen And Up Audiences"]="T"
 rating_conversion["General Audiences"]="G"
 rating_conversion["Not Rated"]=""
@@ -88,6 +91,7 @@ rating_conversion["Not Rated"]=""
 
 
 def format_relationship(ship):
+	"""for a relationship name, puts the characters in alphabetical order, format/shorten the name of the characters (capitalisation etc) or the relationship if necessary (like wolfstar)"""
 	#avoid duplicates due to different order
 	#assumes that 3+ relationships have all the same separator (& or /)
 
@@ -116,6 +120,7 @@ def format_relationship(ship):
 	return ship
 
 def format_character_name(name):
+	""" on a character name, corrects capitalisation and deletes parenthesis content"""
 	name=re.sub("\(.*?\)","",name) #delete parenthesis content, such as "Draco Malfoy (Harry Potter)"
 	name=re.split("( )",name)
 	#correct capitalisation
@@ -130,6 +135,7 @@ def format_character_name(name):
 	return name
 
 def build_work_list(directory):
+	"""recursively finds the location of all epub files in a directory"""
 	list_=[]
 	for root, dirs, files in os.walk(directory, topdown=False):
 		for fname in files:
@@ -309,8 +315,11 @@ def edit_calibre_database(uri,metadata):
 	if only_process_new:
 		cursor.execute("SELECT * from books_custom_column_"+custom_columns["fandom"]+"_link WHERE book="+id_) 
 		if cursor.fetchone():
-			print "Skipped this work (already tagged)"
+			#print "Skipped this work (already tagged)"
 			return
+	
+
+	print "processing ",uri
 
 
 	for metadata_type in columns_to_update:
@@ -392,6 +401,7 @@ def edit_calibre_database(uri,metadata):
 if __name__=="__main__":
 	works=build_work_list(import_directory)
 
+	#formats the ship names provided by the user in order to match the formatting of ships extracted from the epub
 	short_ship2={}
 	for ship in short_ship:
 		ship2=format_relationship(ship)
@@ -399,7 +409,6 @@ if __name__=="__main__":
 	short_ship=short_ship2
 
 	for work in works:
-		print "processing ",work
 		data=parse_ao3_metadata(work)
 		if data:
 			edit_calibre_database(data[0],data[1])
