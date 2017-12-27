@@ -100,25 +100,37 @@ for html_path, dirs, files in os.walk(html_root_dir, topdown=False):
 					link="https://www.fimfiction.net/story/download/"+work_id+"/epub"
 
 					#parse tags
+					tags={}
 					container=soup.findAll("article",{"class":"story_container"})[0]
 					try:
 						tag_line=container.findAll("ul",{"class":"story-tags"})[0]
+						tags_items=tag_line.findAll("a")
+						tags["characters"]=[]
+						tags["tags"]=[]
+						tags["content_rating"]=""
+						for tag_item in tags_items:
+							type_=tag_item["class"][0]
+							content=tag_item.contents[0]
+							if type_=="tag-series":
+								pass
+							elif type_=="tag-character":
+								tags["characters"].append(content)
+							else:
+								tags["tags"].append(content)
+								if content.lower()=="sex":
+									tags["content_rating"]="E"
 					except IndexError:
 						print "The tags for the work "+fname_path+" could not be found, sorry."
-						continue
-					tags_items=tag_line.findAll("a")
-					tags={}
-					tags["characters"]=[]
-					tags["tags"]=[]
-					for tag_item in tags_items:
-						type_=tag_item["class"][0]
-						content=tag_item.contents[0]
-						if type_=="tag-series":
-							pass
-						elif type_=="tag-character":
-							tags["characters"].append(content)
-						else:
-							tags["tags"].append(content)
+
+					#get word count
+					tags["word_count"]=""
+					words=container.findAll("div",{"class":"word_count"})
+					for w in words:
+						if not w.findAll("span"):
+							#at this point we are down to "<b>123,456</b> words". the next line goes inside the <b> tag to get to the number. this part will break as soon as the formatting of fimfiction changes
+							w=w.find("b").contents[0]
+							w=re.sub("\D","",w) #deletes the comma
+							tags["word_count"]=w
 
 					#get title and author to use as an ID with the tags
 					title=soup.find("meta", property="og:title")["content"]
@@ -140,12 +152,13 @@ for html_path, dirs, files in os.walk(html_root_dir, topdown=False):
 				if os.path.exists(complete_out_path):
 					sys.stderr.write("File skipped (there already is a file with the same name in the same location) : "+complete_out_path+" \n")
 					continue
-				sys.stderr.write("Downloading "+complete_out_path+" ...")
-				r=requests.get(link)
-				epub_file=r.content
-				sys.stderr.write(" done !\n")
-				with open(complete_out_path,"wb") as fout:
-					fout.write(epub_file)
+				else:
+					sys.stderr.write("Downloading "+complete_out_path+" ...")
+					r=requests.get(link)
+					epub_file=r.content
+					sys.stderr.write(" done !\n")
+					with open(complete_out_path,"wb") as fout:
+						fout.write(epub_file)
 
 
 
