@@ -129,7 +129,7 @@ def format_relationship(ship):
 def format_character_name(name):
 	""" on a character name, corrects capitalisation and deletes parenthesis content"""
 	name=re.sub("\(.*?\)","",name) #delete parenthesis content, such as "Draco Malfoy (Harry Potter)"
-	name=re.split("( )",name)
+	name=re.split("( )",name) #split on space, keep the spaces
 	#correct capitalisation
 	for i,a in enumerate(name):
 		if a !="'s":
@@ -206,8 +206,10 @@ def parse_ao3_metadata(epub_file,fimfictiondata=False):
 
 
 
-		#parsing
 		if source_site=="ao3":
+
+			#parsing of the metadata in the html
+			#variable "info_text" contains the relevant part of the html in a string
 			raw_data={}
 			for data in ["Rating"]:
 				try :
@@ -233,17 +235,19 @@ def parse_ao3_metadata(epub_file,fimfictiondata=False):
 			if series_match:
 				raw_data["series_n"],raw_data["series"]=series_match[0]
 			else:
-				raw_data["series"]=False
-				raw_data["series_n"]=False
+				raw_data["series"]=False #name of the series
+				raw_data["series_n"]=False #number of the work in the series
 
 
 			#formatting
+			#metadata is a dictionary containing the final, clean values of all found metadata, and will be returned at the end
 			metadata["content_rating"]=rating_conversion[raw_data["Rating"]]
 			
 			metadata["category_relationships"]=raw_data["Category"]
 			metadata["word_count"]=word_count
 			if raw_data["series"]:
 				metadata["series_ao3"]=re.sub("[\.,']"," ",raw_data["series"])
+				#I made this when I tried to use calibre native "series" metadata, that didn't work like the others. could probably delete this now.
 			else:
 				metadata["series_ao3"]=False
 			metadata["series_number"]=raw_data["series_n"]
@@ -261,6 +265,9 @@ def parse_ao3_metadata(epub_file,fimfictiondata=False):
 
 			metadata["tags"]=[]
 			for column_name,column_list in {"characters": raw_data["Character"], "relationships":raw_data["Relationship"],"ao3_tags":raw_data["Additional Tags"]}.iteritems():
+
+				#column_name = "characters", "relationships"...
+				#column_list = ["harry potter","draco malfoy"] ...
 					
 				formatted_list=[]
 				for item in column_list:
@@ -272,6 +279,7 @@ def parse_ao3_metadata(epub_file,fimfictiondata=False):
 						item=format_relationship(item)
 						if len(re.findall("/",item))>1 and "threesome" in custom_tags_list:
 							metadata["tags"].append("threesome")
+							#TODO missing an option to not do this
 						
 
 					if column_name in hierarchical_columns:
@@ -304,7 +312,7 @@ def parse_ao3_metadata(epub_file,fimfictiondata=False):
 				data=fimfictiondata[fimfiction_id]
 			except TypeError:
 				sys.stderr.write("error : tried to process a fimfiction file but the metadata json file was not provided\n")
-			metadata["fandom"]="MLP"
+			metadata["fandom"]="MLP" #TODO make an option to choose that
 			for info in data:
 				if info=="tags":
 					metadata["ao3_tags"]=data["tags"]
