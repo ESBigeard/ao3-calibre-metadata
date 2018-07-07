@@ -1,6 +1,6 @@
 #!/usr/bin/python
 # -*- coding:utf-8 -*-
-"""how to use : after having imported the works into calibre AND imported the custom columns, run this script to populate the custom columns with the AO3 tags and data
+"""how to use : after having imported the works into calibre AND imported the custom columns, run this script to populate the custom columns with the AO3 tags and data. Reboot Calibre to view changes.
 what it does : for a calibre book folder, created from an AO3 .epub file, parse the metadata in the beginning of the work toward calibre readable metadata in the metadata database"""
 
 import os, zipfile, re, codecs,sys
@@ -42,6 +42,13 @@ short_fandom["Subarashiki Kono Sekai | The World Ends With You"]="TWEWY"
 short_fandom["Tales of Symphonia"]="ToS"
 short_fandom["Yuri!!! on Ice (Anime)"]="YoI"
 short_fandom["Tsubasa: Reservoir Chronicle"]="Tsubasa"
+short_fandom["Pocket Monsters | Pokemon - All Media Types"]=u"Pokémon"
+short_fandom["Pocket Monsters | Pokemon (Main Video Game Series)"]=u"Pokémon"
+short_fandom["Pokemon (Main Video Game Series)"]=u"Pokémon"
+short_fandom["Pocket Monsters: Red & Green & Blue & Yellow | Pokemon Red Green Blue Yellow Versions"]=u"Pokémon"
+short_fandom["Pocket Monsters: HeartGold & SoulSilver | Pokemon HeartGold & SoulSilver Versions"]=u"Pokémon"
+short_fandom["Pocket Monsters: FireRed & LeafGreen | Pokemon FireRed & LeafGreen Versions"]=u"Pokémon"
+short_fandom["Pocket Monsters: Sun & Moon | Pokemon Sun & Moon Versions"]=u"Pokémon"
 shorten_fandom_itself=True #use the short name defined above for the metadata "fandom" itself
 
 short_ship={} #use a shorten version of a character name in the relationship metadata. For example "HP.Draco Malfoy/Harry Potter" becomes "HP.Draco/Harry" or even "HP.Drarry". Enter only the name of the ship, without the fandom in front, like "Draco/Harry". This has no effect on the "character" metadata
@@ -58,10 +65,18 @@ short_character["Victor Nikiforov"]="Victor"
 short_character['Bito "Beat" Daisukenojou']="Beat"
 short_character['Bito "Rhyme" Raimu']="Rhyme"
 short_character['Kiryu "Joshua" Yoshiya']="Joshua"
+short_character['Red (Pokemon)']="Red"
+short_character['Ookido Green | Blue Oak']="Green"
+short_character['Ohkido Green | Blue Oak']="Green"
+short_character['Ookido Green']="Green"
+short_character['Ohkido Green']="Green"
+short_character['Blue Oak']="Green"
+short_character['Blue | Green']="Green"
+short_character['Dr Ookido Yukinari | Professor Samuel Oak']="Prof Oak"
+short_character['Dr. Ookido Yukinari | Professor Samuel Oak']="Prof Oak"
+short_character['Ookido Nanami | Daisy Oak']="Daisy Oak"
 
 
-test_file="/home/ezi/Dropbox/save/lecture - fics/calibre_library/dance_across/After Everyone Else (2)/After Everyone Else - dance_across.epub"
-#test_file="/home/ezi/Dropbox/save/lecture - fics/calibre_library/Sy_Itha/Conflict Resolution (15)/Conflict Resolution - Sy_Itha.epub"
 
 global_genre="fiction.fanfiction" #I like to put all my fanfiction in this sub-genre. you can change the value at will
 global_read_status="New" #All imported fics read status. you can set this to "New" "On it" or "Read" . mind the capital.
@@ -220,6 +235,21 @@ def parse_ao3_metadata(epub_file,fimfictiondata=False):
 				try :
 					s=re.findall(data+":\n(.*?)\n",info_text)[0]
 					s=s.split(",")
+					
+					#special case, relationship like char1name1 / char2name1 | char1name2 / char2name2
+					#doesn't work properly because i can't guess between the example previous line and char1name1 | char1name2 / char2
+					#chose to just keep the relationship raw if a | is detected
+					if False: # data=="Relationship" and "|" in "".join(s):
+						s2=[]
+						for relationship in s:
+							if "|" in relationship :
+								relationships=relationship.split("|")
+								s2+=relationships
+							else:
+								s2.append(relationship)
+						s=s2
+
+
 					s=[x.strip() for x in s]
 					raw_data[data]=s
 				except IndexError:
@@ -276,7 +306,8 @@ def parse_ao3_metadata(epub_file,fimfictiondata=False):
 						item=format_character_name(item)
 
 					elif column_name =="relationships":
-						item=format_relationship(item)
+						if not "|" in item:
+							item=format_relationship(item)
 						if len(re.findall("/",item))>1 and "threesome" in custom_tags_list:
 							metadata["tags"].append("threesome")
 							#TODO missing an option to not do this
@@ -373,9 +404,9 @@ def edit_calibre_database(uri,metadata):
 		id_=str(rows[0])
 	else:
 		#can't find uri in calibre db, try switching http / https
-		if uri[4]=="s":
+		if uri[4]=="s": 
 			uri=uri[:4]+uri[5:]
-		else:
+		else: 
 			uri=uri[:4]+"s"+uri[4:]
 
 		cursor.execute("SELECT book,val FROM identifiers WHERE val='"+uri+"'")
