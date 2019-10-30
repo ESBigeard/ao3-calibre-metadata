@@ -306,9 +306,9 @@ def parse_ao3_metadata(epub_file,fimfictiondata=False):
 						item=format_character_name(item)
 
 					elif column_name =="relationships":
-						if not "|" in item:
+						if not "|" in item: #weird stuff like character1name1 | character1name2 / character2, better not try to format it
 							item=format_relationship(item)
-						if len(re.findall("/",item))>1 and "threesome" in custom_tags_list:
+						if not "|" in item and ( len(re.findall("/",item))>1 and "threesome" in custom_tags_list):
 							metadata["tags"].append("threesome")
 							#TODO missing an option to not do this
 						
