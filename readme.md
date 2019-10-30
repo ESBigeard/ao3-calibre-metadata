@@ -13,5 +13,5 @@ What's Calibre ? It's a software that acts as a library for written documents, s
 
 The scripts presents in this repository will read the metadata informations at the top of AO3-generated epubs and put them in Calibre so you can happily sort through fandoms, characters, tags, etc.
 
-
+WARNING : In June 2019 AO3 changed the format of the epub files. Files downloaded before will not be correctly processed by this script. You will need to re-download the files for them to work. Sorry about that.
 
