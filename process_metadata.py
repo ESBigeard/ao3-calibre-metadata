@@ -9,8 +9,9 @@ import sqlite3
 from HTMLParser import HTMLParser
 
 
-import_directory="calibre_library"
-disable_old_epub_warnings=True #option for myself. Silently ignore files that don't have the proper AO3 formatting
+calibre_library_location="tmp_test"
+calibre_database_location=calibre_library_location+"/metadata.db"
+disable_old_epub_warnings=False #option for myself. Silently ignore files that don't have the proper AO3 formatting
 
 use_fimfiction=False
 if use_fimfiction:
@@ -23,70 +24,11 @@ only_process_new=True #only tag works that seem new. False to re-tag work. this 
 columns_to_update=["tags","series_ao3","word_count","content_rating","status","category_relationships","fandom","genre","relationships","characters","ao3_tags"] #add here all columns you want the script to update. "read" should be in this list but I removed it because reasons =(
 #columns_to_update=["tags"] #add here all columns you want the script to update
 
-custom_tags=True #Wether you want to add my custom tags. True to add the tags, False to only keep the original tags. this goes to the native "tags" column of calibre
-custom_tags_list=["threesome"] #list of my tags
-transfer_tags_list={} #list of AO3 tags to copy to calibre native tags
-transfer_tags_list["Hogwarts Eighth Year"]="HP.8th year"
-transfer_tags_list["Post-Canon"]="post-canon"
-transfer_tags_list["Alpha/Beta/Omega Dynamics"]="ABO"
-
-short_fandom={} #each character name is formatted as fandom.character, for example Avatar : The Last Airbender.Zuko This might be too verbose to your liking. Use this dictionnary to define a short name for a fandom. For example if you define short_fandom["Avatar : The Last Airbender"]="ATLA" Zuko will be named "ATLA.Zuko". No correction is performed on the long name, so be careful to type it exactly as it is. This dictionnary can also be used to put different things under the same name, for example the several "fullmetal alchemist" fandoms
-short_fandom[u"僕のヒーローアカデミア | Boku no Hero Academia | My Hero Academia"]="MHA"
-short_fandom["Avatar: The Last Airbender"]="ATLA"
-short_fandom["Avatar: Legend of Korra"]="LoK"
-short_fandom["Fullmetal Alchemist"]="FMA"
-short_fandom["Fullmetal Alchemist - All Media Types"]="FMA"
-short_fandom["Fullmetal Alchemist (Anime 2003)"]="FMA"
-short_fandom["Fullmetal Alchemist: Brotherhood & Manga"]="FMA"
-short_fandom["Harry Potter - Rowling"]="HP"
-short_fandom["Harry Potter - J. K. Rowling"]="HP"
-short_fandom["Subarashiki Kono Sekai | The World Ends With You"]="TWEWY"
-short_fandom["Tales of Symphonia"]="ToS"
-short_fandom["Yuri!!! on Ice (Anime)"]="YoI"
-short_fandom["Tsubasa: Reservoir Chronicle"]="Tsubasa"
-short_fandom["Pocket Monsters | Pokemon - All Media Types"]=u"Pokémon"
-short_fandom["Pocket Monsters | Pokemon (Main Video Game Series)"]=u"Pokémon"
-short_fandom["Pokemon (Main Video Game Series)"]=u"Pokémon"
-short_fandom["Pocket Monsters: Red & Green & Blue & Yellow | Pokemon Red Green Blue Yellow Versions"]=u"Pokémon"
-short_fandom["Pocket Monsters: HeartGold & SoulSilver | Pokemon HeartGold & SoulSilver Versions"]=u"Pokémon"
-short_fandom["Pocket Monsters: FireRed & LeafGreen | Pokemon FireRed & LeafGreen Versions"]=u"Pokémon"
-short_fandom["Pocket Monsters: Sun & Moon | Pokemon Sun & Moon Versions"]=u"Pokémon"
-shorten_fandom_itself=True #use the short name defined above for the metadata "fandom" itself
-
-short_ship={} #use a shorten version of a character name in the relationship metadata. For example "HP.Draco Malfoy/Harry Potter" becomes "HP.Draco/Harry" or even "HP.Drarry". Enter only the name of the ship, without the fandom in front, like "Draco/Harry". This has no effect on the "character" metadata
-short_ship["Draco Malfoy/Harry Potter"]="Draco/Harry"
-short_ship["Sirius Black/Remus Lupin"]="Wolfstar"
-short_ship["Christophe Giacometti/Katsuki Yuuri/Victor Nikiforov"]="Chris/Yuuri/Victor"
-
-short_character={} #same as previously, but with only one character. For example if you have one character in ships with several other characters, you can add his name here to be shortened in all of his ships. Enter only the name of the character without the fandom, for example "Draco Malfoy" This has no effect on the "character" metadata
-short_character["Christophe Giacometti"]="Chris"
-short_character["Katsuki Yuuri"]="Yuuri"
-short_character["Yuuri Katsuki"]="Yuuri"
-short_character["Yuri Katsuki"]="Yuuri"
-short_character["Victor Nikiforov"]="Victor"
-short_character['Bito "Beat" Daisukenojou']="Beat"
-short_character['Bito "Rhyme" Raimu']="Rhyme"
-short_character['Kiryu "Joshua" Yoshiya']="Joshua"
-short_character['Red (Pokemon)']="Red"
-short_character['Ookido Green | Blue Oak']="Green"
-short_character['Ohkido Green | Blue Oak']="Green"
-short_character['Ookido Green']="Green"
-short_character['Ohkido Green']="Green"
-short_character['Blue Oak']="Green"
-short_character['Blue | Green']="Green"
-short_character['Dr Ookido Yukinari | Professor Samuel Oak']="Prof Oak"
-short_character['Dr. Ookido Yukinari | Professor Samuel Oak']="Prof Oak"
-short_character['Ookido Nanami | Daisy Oak']="Daisy Oak"
-
-
-
-global_genre="fiction.fanfiction" #I like to put all my fanfiction in this sub-genre. you can change the value at will
-global_read_status="New" #All imported fics read status. you can set this to "New" "On it" or "Read" . mind the capital.
 
 hierarchical_columns=["characters","relationships"] #characters and relationships can be hierarchical or not. don't add any other.
 
 
-db=sqlite3.connect("calibre_library/metadata.db")
+db=sqlite3.connect(calibre_database_location)
 cursor=db.cursor()
 
 #do not touch
@@ -112,8 +54,66 @@ rating_conversion["Teen And Up Audiences"]="T"
 rating_conversion["General Audiences"]="G"
 rating_conversion["Not Rated"]=""
 
+#global variables regarding preferences. set by load_preferences()
+custom_tags=False
+custom_tags_list=[]
+transfer_tags_list={} #obsolete since calibre now gets tags natively
+short_fandom={}
+short_ship={}
+short_character={}
+global_genre=""
+global_read_status=""
+shorten_fandom_itself=True
+
 class AO3FormatError(Exception):
 	pass
+
+def load_preferences(fname):
+	
+	current_list=""
+	with codecs.open(fname,"r","utf-8") as f:
+		for l in f:
+			if l.startswith("#"):
+				continue
+			if l.startswith("END"):
+				break
+			l=l.strip()
+			if len(l)>0:
+				if l=="==FANDOM==":
+					current_list="fandom"
+				elif l=="==CHARACTER==":
+					current_list="character"
+				elif l=="==RELATIONSHIP==":
+					current_list="relationship"
+				elif l=="==PREFERENCES==":
+					current_list="preferences"
+				if not current_list:
+					raise TypeError
+				if current_list=="preferences":
+					entry,value=l.split("=",1)
+					entry=entry.strip()
+					value=value.strip()
+					if entry=="genre":
+						global global_genre
+						global_genre=value
+					if entry=="read_status":
+						global global_read_status
+						global_read_status=value
+					
+				else:
+					short_name,long_name=l.split("=",1)
+					short_name=short_name.strip()
+					long_name=long_name.strip()
+					if current_list=="fandom":
+						short_fandom[long_name]=short_name
+					elif current_list=="character":
+						short_character[long_name]=short_name
+					elif current_list=="relationship":
+						short_ship[long_name]=short_name
+
+	return #all infos are stored in global values, nothing to return
+
+
 
 def format_relationship(ship):
 	"""for a relationship name, puts the characters in alphabetical order, format/shorten the name of the characters (capitalisation etc) or the relationship if necessary (like wolfstar)"""
@@ -175,7 +175,8 @@ def parse_ao3_metadata(epub_file,fimfictiondata=False):
 	
 	metadata={}
 	metadata["genre"]=global_genre
-	metadata["read"]=global_read_status
+	if global_read_status:
+		metadata["read"]=global_read_status
 	source_site=""
 
 
@@ -531,7 +532,8 @@ def edit_calibre_database(identifier,metadata):
 
 
 if __name__=="__main__":
-	works=build_work_list(import_directory)
+	load_preferences("config.txt")
+	works=build_work_list(calibre_library_location)
 
 	#formats the ship names provided by the user in order to match the formatting of ships extracted from the epub
 	short_ship2={}

@@ -1,0 +1,76 @@
+
+#This file contains your preferences
+
+==PREFERENCES==
+
+genre = fiction.fanfiction
+#I like to put all my fanfiction in this sub-genre. you can change the value at will
+
+read_status= New
+#All imported fics read status. you can set this to "New" "On it" or "Read", or leave it empty . mind the capital.
+
+
+#Below, enter your preferred shortened names for fandoms, characters and relationships.
+
+#Some fandoms, characters or relationships can be too long/verbose to be easy to read in the Calibre interface. Use this file to define shortened names. No correction is performed on the long name, so be careful to type it exactly as it is in your epub file. You can also use this to put different things under the same name, by defining the same short name for several different entries. This is useful for example for the several "fullmetal alchemist" or "Pokémon" fandoms.
+#This part is entirely optional, you can leave everything below this point empty
+#One entry per line, with the following format :
+#your chosen shortened name = the name of the fandom/ship/character exactly as it appears in the epub
+#You will find a few examples to get you started
+
+==FANDOM==
+
+MHA = 僕のヒーローアカデミア | Boku no Hero Academia | My Hero Academia
+ATLA = Avatar: The Last Airbender
+LoK = Avatar: Legend of Korra
+FMA = Fullmetal Alchemist
+FMA = Fullmetal Alchemist - All Media Types
+FMA = Fullmetal Alchemist (Anime 2003)
+FMA = Fullmetal Alchemist: Brotherhood & Manga
+HP = Harry Potter - Rowling
+HP = Harry Potter - J. K. Rowling
+TWEWY = Subarashiki Kono Sekai | The World Ends With You
+ToS = Tales of Symphonia
+YoI = Yuri!!! on Ice (Anime)
+Tsubasa = Tsubasa: Reservoir Chronicle
+Pokémon = Pocket Monsters | Pokemon - All Media Types
+Pokémon = Pocket Monsters | Pokemon (Main Video Game Series
+Pokémon = Pokemon (Main Video Game Series
+Pokémon = Pocket Monsters: Red & Green & Blue & Yellow | Pokemon Red Green Blue Yellow Versions
+Pokémon = Pocket Monsters: HeartGold & SoulSilver | Pokemon HeartGold & SoulSilver Versions
+Pokémon = Pocket Monsters: FireRed & LeafGreen | Pokemon FireRed & LeafGreen Versions
+Pokémon = Pocket Monsters: Sun & Moon | Pokemon Sun & Moon Versions
+
+
+== RELATIONSHIP ==
+
+Drarry = Draco Malfoy/Harry Potter
+Wolfstar = Sirius Black/Remus Lupin
+
+== CHARACTER ==
+
+#This has no effect on the 'characters' metadata, it only affects how the name of the character appears in the relationships. This is a quick way of shortening the name of a character in all of its relationships
+#If you define the same short name for different characters IN THE SAME FANDOM the software will "fuse" them together (this is useful for characters who tend to have several ways to spell their name)
+#If you define the same short name for different characters IN DIFFERENT FANDOMS the software will recognise that they are different and will not "fuse" them together
+
+Chris = Christophe Giacometti
+Yuuri = Katsuki Yuuri
+Yuuri = Yuuri Katsuki
+Yuuri = Yuri Katsuki
+Victor = Victor Nikiforov
+Beat = Bito "Beat" Daisukenojou
+Rhyme = Bito "Rhyme" Raimu
+Joshua = Kiryu "Joshua" Yoshiya
+Red = Red (Pokemon)
+Green = Ookido Green | Blue Oak
+Green=Ohkido Green | Blue Oak
+Green=Ookido Green
+Green=Ohkido Green
+Green=Blue Oak
+Green=Blue | Green
+Prof Oak = Dr Ookido Yukinari | Professor Samuel Oak
+Prof Oak = Dr. Ookido Yukinari | Professor Samuel Oak
+Daisy Oak = Ookido Nanami | Daisy Oak
+
+
+
