@@ -17,9 +17,7 @@ disable_old_epub_warnings=True #option for myself. Silently ignore files that do
 only_process_new=True #only tag works that seem new. False to re-tag work. this works by checking if the fandom is set
 
 #here's a list of possible columns : tags, series_ao3, word_count, content_rating, read, status, category_relationships, fandom, genre, relationships, characters
-#columns_to_update=["tags","series_ao3","word_count","content_rating","status","category_relationships","fandom","genre","relationships","characters","ao3_tags"] #add here all columns you want the script to update. "read" should be in this list but I removed it because reasons =(
 columns_to_update=["tags","series_ao3","word_count","content_rating","status","category_relationships","fandom","genre","relationships","characters"] #add here all columns you want the script to update. "read" should be in this list but I removed it because reasons =(
-#columns_to_update=["tags"] #add here all columns you want the script to update
 
 
 hierarchical_columns=["characters","relationships"] #characters and relationships can be hierarchical or not. don't add any other.
@@ -54,7 +52,6 @@ rating_conversion["Not Rated"]=""
 #global variables regarding preferences. set by load_preferences()
 custom_tags=False
 custom_tags_list=[]
-transfer_tags_list={} #obsolete since calibre now gets tags natively
 short_fandom={}
 short_ship={}
 short_character={}
@@ -187,8 +184,6 @@ def parse_ao3_metadata(epub_file):
 				html="\n".join(html)
 				soup=BeautifulSoup(html,"lxml-xml")
 				#Updating my computer led to an updating of python and of the default "lxml" parser. This created a bug where "dc:title" and other "dc:" tags were not properly processed (seen correctly in soup.find_all() but not found with soup.findAll("dc:title") ). I switched to "lxml_xml" parser which ignores the dc:" entirely and works. For future reference the tags below should be "dc:title" "dc:creator" "opf:file-as" and "dc:date".
-				#for tag in soup.find_all():
-				#	print tag.name,len(tag.name)
 				title=soup.findAll("title")[0].getText()
 				author=soup.findAll("creator")[0]
 				author=author["file-as"]
@@ -295,7 +290,6 @@ def parse_ao3_metadata(epub_file):
 			metadata["fandom"]=raw_data["Fandom"]
 
 		metadata["tags"]=[]
-		#for column_name,column_list in {"characters": raw_data["Character"], "relationships":raw_data["Relationship"],"ao3_tags":raw_data["Additional Tags"]}.iteritems():
 		for column_name,column_list in {"characters": raw_data["Character"], "relationships":raw_data["Relationship"]}.iteritems():
 
 			#column_name = "characters", "relationships"...
@@ -325,9 +319,6 @@ def parse_ao3_metadata(epub_file):
 				formatted_list.append(item)
 			metadata[column_name]=formatted_list
 
-		#for tag in metadata["ao3_tags"]:
-		#	if tag in transfer_tags_list:
-		#		metadata["tags"].append(transfer_tags_list[tag])
 
 
 		
@@ -351,7 +342,6 @@ def fetch_value_id(table_name,value_real,create_missing=False,):
 		value_column_name="name" #histoire de faire chier
 
 
-	#print "rfffffff",[table_name,value_column_name,value_real]
 	cursor.execute("SELECT id FROM "+table_name+" WHERE "+value_column_name+"= ?", (value_real,))
 	rows= cursor.fetchone()
 	if rows:
@@ -364,7 +354,6 @@ def fetch_value_id(table_name,value_real,create_missing=False,):
 				value_id=max_id+1
 			else:
 				value_id=1
-			#print "eeeee",[table_name,value_column_name,value_id,value_real]
 			cursor.execute("INSERT INTO "+table_name+" (id, '"+value_column_name+"') VALUES (?,?)" , (value_id,value_real) )
 		else:
 			sys.stderr.write("error : the value "+value_real+" doesn't exist for the column "+table_name+". be sure to enter EXACTLY an existing value\n")
@@ -389,7 +378,7 @@ def edit_calibre_database(identifier,metadata):
 	if rows:
 		id_=str(rows[0])
 	else:
-		#can't find uri in calibre db
+		#can't find the book in calibre db
 		sys.stderr.write("error : book "+title+" not found. have you first imported the work into calibre ?\n")
 		return 0
 
