@@ -21,7 +21,8 @@ if use_fimfiction:
 only_process_new=True #only tag works that seem new. False to re-tag work. this works by checking if the fandom is set
 
 #here's a list of possible columns : tags, series_ao3, word_count, content_rating, read, status, category_relationships, fandom, genre, relationships, characters
-columns_to_update=["tags","series_ao3","word_count","content_rating","status","category_relationships","fandom","genre","relationships","characters","ao3_tags"] #add here all columns you want the script to update. "read" should be in this list but I removed it because reasons =(
+#columns_to_update=["tags","series_ao3","word_count","content_rating","status","category_relationships","fandom","genre","relationships","characters","ao3_tags"] #add here all columns you want the script to update. "read" should be in this list but I removed it because reasons =(
+columns_to_update=["tags","series_ao3","word_count","content_rating","status","category_relationships","fandom","genre","relationships","characters"] #add here all columns you want the script to update. "read" should be in this list but I removed it because reasons =(
 #columns_to_update=["tags"] #add here all columns you want the script to update
 
 
@@ -43,7 +44,7 @@ custom_columns["read"]="7"
 custom_columns["content_rating"]="8"
 custom_columns["category_relationships"]="10"
 custom_columns["series_ao3"]="12"
-custom_columns["ao3_tags"]="13"
+#custom_columns["ao3_tags"]="13"
 custom_columns["tags"]="tags" #put the non-custom columns in here, with data same as the key
 #custom_columns["series"]="series"
 
@@ -322,7 +323,8 @@ def parse_ao3_metadata(epub_file,fimfictiondata=False):
 				metadata["fandom"]=raw_data["Fandom"]
 
 			metadata["tags"]=[]
-			for column_name,column_list in {"characters": raw_data["Character"], "relationships":raw_data["Relationship"],"ao3_tags":raw_data["Additional Tags"]}.iteritems():
+			#for column_name,column_list in {"characters": raw_data["Character"], "relationships":raw_data["Relationship"],"ao3_tags":raw_data["Additional Tags"]}.iteritems():
+			for column_name,column_list in {"characters": raw_data["Character"], "relationships":raw_data["Relationship"]}.iteritems():
 
 				#column_name = "characters", "relationships"...
 				#column_list = ["harry potter","draco malfoy"] ...
@@ -351,9 +353,9 @@ def parse_ao3_metadata(epub_file,fimfictiondata=False):
 					formatted_list.append(item)
 				metadata[column_name]=formatted_list
 
-			for tag in metadata["ao3_tags"]:
-				if tag in transfer_tags_list:
-					metadata["tags"].append(transfer_tags_list[tag])
+			#for tag in metadata["ao3_tags"]:
+			#	if tag in transfer_tags_list:
+			#		metadata["tags"].append(transfer_tags_list[tag])
 
 
 			
@@ -374,9 +376,9 @@ def parse_ao3_metadata(epub_file,fimfictiondata=False):
 				raise
 			metadata["fandom"]="MLP" #TODO make an option to choose that
 			for info in data:
-				if info=="tags":
-					metadata["ao3_tags"]=data["tags"]
-				elif info=="characters":
+				#if info=="tags":
+				#	metadata["ao3_tags"]=data["tags"]
+				if info=="characters":
 					metadata["characters"]=[]
 					for character in data["characters"]:
 						character="MLP."+character
