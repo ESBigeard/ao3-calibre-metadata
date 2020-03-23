@@ -9,9 +9,9 @@ import sqlite3
 from HTMLParser import HTMLParser
 
 
-calibre_library_location="tmp_test"
+calibre_library_location="calibre_library"
 calibre_database_location=calibre_library_location+"/metadata.db"
-disable_old_epub_warnings=False #option for myself. Silently ignore files that don't have the proper AO3 formatting
+disable_old_epub_warnings=True #option for myself. Silently ignore files that don't have the proper AO3 formatting
 
 use_fimfiction=False
 if use_fimfiction:
