@@ -42,12 +42,14 @@ Pokémon = Pocket Monsters: FireRed & LeafGreen | Pokemon FireRed & LeafGreen Ve
 Pokémon = Pocket Monsters: Sun & Moon | Pokemon Sun & Moon Versions
 
 
-== RELATIONSHIP ==
+==RELATIONSHIP==
 
 Drarry = Draco Malfoy/Harry Potter
 Wolfstar = Sirius Black/Remus Lupin
+KatsuDeku = Bakugou Katsuki/Midoriya Izuku
+KatsuTodo = Bakugou Katsuki/Todoroki Shouto
 
-== CHARACTER ==
+==CHARACTER==
 
 #This has no effect on the 'characters' metadata, it only affects how the name of the character appears in the relationships. This is a quick way of shortening the name of a character in all of its relationships
 #If you define the same short name for different characters IN THE SAME FANDOM the software will "fuse" them together (this is useful for characters who tend to have several ways to spell their name)
@@ -71,6 +73,9 @@ Green=Blue | Green
 Prof Oak = Dr Ookido Yukinari | Professor Samuel Oak
 Prof Oak = Dr. Ookido Yukinari | Professor Samuel Oak
 Daisy Oak = Ookido Nanami | Daisy Oak
+Bakugou Katsuki = Katsuki
+Kirishima Eijirou = Kirishima
+Kaminari Denki = Denki
 
 
 
