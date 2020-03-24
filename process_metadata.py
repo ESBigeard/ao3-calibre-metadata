@@ -388,6 +388,12 @@ def edit_calibre_database(identifier,metadata,update_mode="new_only"):
 
 	if update_mode=="update_tags":
 		columns_to_update=["fandom","relationships","characters"]
+		#besoin de run une première fois les delete, puis de les commenter et rerun pour re-populer. si on le fait en une seule fois, les tables restent vides
+		#cursor.execute("DELETE FROM books_custom_column_3_link ") #character
+		#cursor.execute("DELETE FROM books_custom_column_4_link ") #fandom
+		#cursor.execute("DELETE FROM books_custom_column_5_link ") #relationships
+
+
 
 	#find the book from the identifier
 	title,author,date=identifier
@@ -524,7 +530,7 @@ if __name__=="__main__":
 		except Exception :
 			sys.stderr.write("Error while processing "+work+" this file has been ignored.\n")
 			continue
-		print(data)
+
 		edit_calibre_database(data[0],data[1],update_mode) #may return 0 if there was an error
 
 
