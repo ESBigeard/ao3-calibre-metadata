@@ -3,12 +3,14 @@
 
 ==PREFERENCES==
 
+library_location = calibre_library
+#The path/folder containing your calibre library. You can find it by clicking in calibre on your library in the top menu. This will open a menu, click on the first item "Switch/create library." This should open a textbox saying "Your calibre library is currently located at" followed by a path. Copy/paste this path above.
+
 genre = fiction.fanfiction
 #I like to put all my fanfiction in this sub-genre. you can change the value at will
 
 read_status= New
-#All imported fics read status. you can set this to "New" "On it" or "Read", or leave it empty . mind the capital.
-
+#All imported fics read status. you can set this to "New" "On it" or "Read", or leave it empty . mind the capital. Usually you'd want to leave it on "New".
 
 #Below, enter your preferred shortened names for fandoms, characters and relationships.
 

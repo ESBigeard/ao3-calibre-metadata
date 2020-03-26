@@ -7,25 +7,14 @@ import os, zipfile, re, codecs,sys
 from bs4 import BeautifulSoup
 import sqlite3
 from HTMLParser import HTMLParser
+import argparse
 
 
-calibre_library_location="calibre_library"
-calibre_database_location=calibre_library_location+"/metadata.db"
 disable_old_epub_warnings=True #option for myself. Silently ignore files that don't have the proper AO3 formatting
 
 
-only_process_new=True 
-update_mode="new_only" #only tag works that seem new. False to re-tag work. this works by checking if the fandom is set
-
-#here's a list of possible columns : tags, series_ao3, word_count, content_rating, read, status, category_relationships, fandom, genre, relationships, characters
-columns_to_update=["tags","series_ao3","word_count","content_rating","status","category_relationships","fandom","genre","relationships","characters"] #add here all columns you want the script to update. "read" should be in this list but I removed it because reasons =(
-
-
+columns_to_update=[] #set here so it can be updated as a global variable later
 hierarchical_columns=["characters","relationships"] #characters and relationships can be hierarchical or not. don't add any other.
-
-
-db=sqlite3.connect(calibre_database_location)
-cursor=db.cursor()
 
 #do not touch
 custom_columns={}
@@ -50,6 +39,8 @@ rating_conversion["General Audiences"]="G"
 rating_conversion["Not Rated"]=""
 
 #global variables regarding preferences. set by load_preferences()
+calibre_library_location=""
+calibre_database_location=""
 short_fandom={}
 short_ship={}
 short_character={}
@@ -61,14 +52,13 @@ class AO3FormatError(Exception):
 	pass
 
 def load_preferences(fname):
+
 	
 	current_list=""
 	with codecs.open(fname,"r","utf-8") as f:
 		for l in f:
 			if l.startswith("#"):
 				continue
-			if l.startswith("END"):
-				break
 			l=l.strip()
 			if len(l)>0:
 				if l=="==FANDOM==":
@@ -90,7 +80,15 @@ def load_preferences(fname):
 					entry,value=l.split("=",1)
 					entry=entry.strip()
 					value=value.strip()
-					if entry=="genre":
+
+					if entry=="library_location":
+						global calibre_library_location
+						global calibre_database_location
+						calibre_library_location=value
+						calibre_database_location=calibre_library_location+"/metadata.db"
+
+
+					elif entry=="genre":
 						global global_genre
 						global_genre=value
 					if entry=="read_status":
@@ -134,7 +132,7 @@ def format_relationship(ship):
 		ship=separator.join(ship)
 	else:
 		#weird formatting, do nothing
-		pass
+		return ship
 	if ship in short_ship:
 		ship=short_ship[ship]
 	else:
@@ -392,6 +390,10 @@ def edit_calibre_database(identifier,metadata,update_mode="new_only"):
 		#cursor.execute("DELETE FROM books_custom_column_3_link ") #character
 		#cursor.execute("DELETE FROM books_custom_column_4_link ") #fandom
 		#cursor.execute("DELETE FROM books_custom_column_5_link ") #relationships
+	elif update_mode=="new_only":
+		columns_to_update=["tags","series_ao3","word_count","content_rating","status","category_relationships","fandom","genre","relationships","characters","read"]
+	elif update_mode=="update":
+		columns_to_update=["tags","series_ao3","word_count","content_rating","status","category_relationships","fandom","genre","relationships","characters"]
 
 
 
@@ -502,23 +504,18 @@ if __name__=="__main__":
 	load_preferences("config.txt")
 	works=build_work_list(calibre_library_location)
 
+	db=sqlite3.connect(calibre_database_location)
+	cursor=db.cursor()
 
-	#todo : 
+	parser = argparse.ArgumentParser(description='Integrates AO3 tags into Calibre. You first need to import AO3 epub books into Calibre before running this script. Restart Calibre to see changes.')
+	parser.add_argument("-m",'--mode', choices={"new_only","update","update_tags"},  default="new_only",help='')
+	parser.add_argument('--debug',  action='store_true', help='If encounters a problem on a book, halts and prints relevant error instead of skipping')
+	args = parser.parse_args()
+
+	#TODO : 
 	#formats the ship names provided by the user in order to match the formatting of ships extracted from the epub
 	#avoids errors if there's a . somewhere in the name
 
-
-	update_mode="new_only"
-	try:
-		if sys.argv[1]=="update_tags":
-			update_mode="update_tags"
-		elif sys.argv[1]=="update all":
-			update_mode="update"
-		else:
-			sys.stderr.write("Erreur option inconnue\n")
-			raise ValueError
-	except IndexError:
-		update_mode="new_only"
 
 	for work in works:
 		try :
@@ -528,10 +525,14 @@ if __name__=="__main__":
 				sys.stderr.write("Error while processing "+work+" this file has been ignored.\n")
 			continue
 		except Exception :
-			sys.stderr.write("Error while processing "+work+" this file has been ignored.\n")
-			continue
+			if args.debug:
+				sys.stderr.write("Error while processing "+work+"\n")
+				raise
+			else:
+				sys.stderr.write("Error while processing "+work+" this file has been ignored.\n")
+				continue
 
-		edit_calibre_database(data[0],data[1],update_mode) #may return 0 if there was an error
+		edit_calibre_database(data[0],data[1],args.mode) #may return 0 if there was an error
 
 
 
