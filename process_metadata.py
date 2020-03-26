@@ -51,62 +51,76 @@ shorten_fandom_itself=True
 class AO3FormatError(Exception):
 	pass
 
+class PreferenceFileError(Exception):
+	pass
+
+class BookNotFountError(Exception):
+	pass
+
 def load_preferences(fname):
 
 	
 	current_list=""
 	with codecs.open(fname,"r","utf-8") as f:
 		for l in f:
-			if l.startswith("#"):
-				continue
-			l=l.strip()
-			if len(l)>0:
-				if l=="==FANDOM==":
-					current_list="fandom"
+		
+			try:
+
+				if l.startswith("#"):
 					continue
-				elif l=="==CHARACTER==":
-					current_list="character"
-					continue
-				elif l=="==RELATIONSHIP==":
-					current_list="relationship"
-					continue
-				elif l=="==PREFERENCES==":
-					current_list="preferences"
-					continue
-				if not current_list:
-					raise TypeError
+				l=l.strip()
+				if len(l)>0:
+					if l=="==FANDOM==":
+						current_list="fandom"
+						continue
+					elif l=="==CHARACTER==":
+						current_list="character"
+						continue
+					elif l=="==RELATIONSHIP==":
+						current_list="relationship"
+						continue
+					elif l=="==PREFERENCES==":
+						current_list="preferences"
+						continue
+					if not current_list:
+						raise PreferenceFileError("Error : Unkown category in the Preferences files. Allowed categories are 'PREFERENCES', 'FANDOM','CHARACTER','RELATIONSIP'")
 
-				if current_list=="preferences":
-					entry,value=l.split("=",1)
-					entry=entry.strip()
-					value=value.strip()
+					if current_list=="preferences":
+						entry,value=l.split("=",1)
+						entry=entry.strip()
+						value=value.strip()
 
-					if entry=="library_location":
-						global calibre_library_location
-						global calibre_database_location
-						calibre_library_location=value
-						calibre_database_location=calibre_library_location+"/metadata.db"
+						if entry=="library_location":
+							global calibre_library_location
+							global calibre_database_location
+							calibre_library_location=value
+							calibre_database_location=calibre_library_location+"/metadata.db"
 
+						elif entry=="genre":
+							global global_genre
+							global_genre=value
+						elif entry=="read_status":
+							global global_read_status
+							global_read_status=value
+						else:
+							raise PreferenceFileError("Error : unknown entry in the Preferences files, under the PREFERENCES category. Possible entries are library_location, genre and read_status")
+						
+					else:
+						short_name,long_name=l.split("=",1)
+						short_name=short_name.strip()
+						long_name=long_name.strip()
+						if current_list=="fandom":
+							short_fandom[long_name]=short_name
+						elif current_list=="character":
+							short_character[long_name]=short_name
+						elif current_list=="relationship":
+							short_ship[long_name]=short_name
 
-					elif entry=="genre":
-						global global_genre
-						global_genre=value
-					if entry=="read_status":
-						global global_read_status
-						global_read_status=value
-					
-				else:
-					short_name,long_name=l.split("=",1)
-					short_name=short_name.strip()
-					long_name=long_name.strip()
-					if current_list=="fandom":
-						short_fandom[long_name]=short_name
-					elif current_list=="character":
-						short_character[long_name]=short_name
-					elif current_list=="relationship":
-						short_ship[long_name]=short_name
+			except PreferenceFileError:
+				sys.stderr.write("Error reading preference file on this line : "+l+"\n")
+				raise
 
-	return #all infos are stored in global values, nothing to return
+		return #all infos are stored in global values, nothing to return
 
 
 
@@ -407,8 +421,7 @@ def edit_calibre_database(identifier,metadata,update_mode="new_only"):
 		id_=str(rows[0])
 	else:
 		#can't find the book in calibre db
-		sys.stderr.write("error : book "+title+" not found. have you first imported the work into calibre ?\n")
-		return 0
+		raise BookNotFoundError("error : book "+title+" not found. have you first imported the work into calibre ?")
 
 
 	#check if fandom is already set, to know if this is a new book. if fandom is set, stop here
