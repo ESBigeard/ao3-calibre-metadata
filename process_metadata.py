@@ -54,7 +54,7 @@ class AO3FormatError(Exception):
 class PreferenceFileError(Exception):
 	pass
 
-class BookNotFountError(Exception):
+class BookNotFoundError(Exception):
 	pass
 
 def load_preferences(fname):
@@ -414,14 +414,23 @@ def edit_calibre_database(identifier,metadata,update_mode="new_only"):
 	#find the book from the identifier
 	title,author,date=identifier
 	date=re.sub("T"," ",date)
+	#first we try to find title+author+date
+	#this should work in a normal situation. But my own database is kinda messed up so I added a backup
 	query="SELECT id FROM books WHERE title= ? and author_sort=? and pubdate=?"
 	cursor.execute(query,(title,author,date))
 	rows=cursor.fetchone()
 	if rows:
 		id_=str(rows[0])
 	else:
-		#can't find the book in calibre db
-		raise BookNotFoundError("error : book "+title+" not found. have you first imported the work into calibre ?")
+		#backup for my broken database : we try to find just title+author
+		query="SELECT id FROM books WHERE title= ? and author_sort=?"
+		cursor.execute(query,(title,author))
+		rows=cursor.fetchone()
+		if rows:
+			id_=str(rows[0])
+		else:
+			#can't find the book in calibre db
+			raise BookNotFoundError("error : book "+title+" not found. have you first imported the work into calibre ? Identifier : "+"+".join(identifier))
 
 
 	#check if fandom is already set, to know if this is a new book. if fandom is set, stop here
@@ -516,12 +525,13 @@ def edit_calibre_database(identifier,metadata,update_mode="new_only"):
 if __name__=="__main__":
 	load_preferences("config.txt")
 	works=build_work_list(calibre_library_location)
+	#works is a list of paths to epub files
 
 	db=sqlite3.connect(calibre_database_location)
 	cursor=db.cursor()
 
 	parser = argparse.ArgumentParser(description='Integrates AO3 tags into Calibre. You first need to import AO3 epub books into Calibre before running this script. Restart Calibre to see changes.')
-	parser.add_argument("-m",'--mode', choices={"new_only","update","update_tags"},  default="new_only",help='')
+	parser.add_argument("-m",'--mode', choices={"new_only","update","update_tags"},  default="new_only",help='Choose new_only to only tag books that haven\'t been tagged before (default behaviour) ; choose update to re-do the tagging of the whole library (useful if you had a problem with your library. This will not overwrite star rating, read status or custom tags) ; choose update_tags to retag fandoms, characters and relationships (useful if you have defined new short names for those)')
 	parser.add_argument('--debug',  action='store_true', help='If encounters a problem on a book, halts and prints relevant error instead of skipping')
 	args = parser.parse_args()
 
@@ -535,7 +545,7 @@ if __name__=="__main__":
 			data=parse_ao3_metadata(work)
 		except AO3FormatError :
 			if not disable_old_epub_warnings:
-				sys.stderr.write("Error while processing "+work+" this file has been ignored.\n")
+				sys.stderr.write("Error while processing "+work+", file not recognised as an AO3 ebook. This file has been ignored.\n")
 			continue
 		except Exception :
 			if args.debug:
@@ -545,9 +555,19 @@ if __name__=="__main__":
 				sys.stderr.write("Error while processing "+work+" this file has been ignored.\n")
 				continue
 
-		edit_calibre_database(data[0],data[1],args.mode) #may return 0 if there was an error
+
+		try :
+			edit_calibre_database(data[0],data[1],args.mode) #may return 0 if there was an error
+		except Exception :
+			if args.debug:
+				sys.stderr.write("Error while processing "+work+"\n")
+				raise
+			else:
+				sys.stderr.write("Error while processing "+work+" this file has been ignored.\n")
+				continue
 
 
 
+#TODO décider si je supprime définitivement la date de l'id ou si j'essaie d'update la date de toute ma bibli...
 
 
