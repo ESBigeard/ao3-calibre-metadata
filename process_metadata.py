@@ -393,6 +393,7 @@ def fetch_canonical_tag(tag,tag_type):
 def edit_calibre_database(identifier,metadata,update_mode="new_only"):
 	"""edit the metadata database of calibre
 	Identifier is a tuple (title,author,date of publication). It is used to find the book in calibre's database. If you have two books by the same author with the same title published the same day you will have a collision and one of the two books will not be correctly processed. I used to use the URI of the book for that, but AO3 updated the format of the epubs and now calibre can't find the URI by itself :( But well if this happens scold the author, not me, I mean come on.
+	If for some reason the script can't find a book with the correct title, author and date, it will attempt to find a book with only the correct title and author. If it can't find any, it gives up and returns a BookNotFound error
 	metadata must be a dictionnary produced by parse_ao3_metadata()
 	update_mode : "new_only" : process new books, normal use. "update" : re-tag everything. "update_tags" re-generate characters, relationships and fandom for books that were already processed. Useful if changes have been made to shortened tags.
 	"""
